@@ -24,7 +24,29 @@
   </nav>
 
   <section class="list" aria-label="Entries">
-    @if (selectedEnv()) {
+    @if (selectedEnv(); as env) {
+      @if (renaming()) {
+        <form class="envbar" (submit)="renameEnv($event)">
+          <input name="rename" aria-label="New environment name" [value]="renameValue()" (input)="renameValue.set(text($event))" />
+          <div class="row">
+            <button type="submit" [disabled]="!renameValue()">Save</button>
+            <button type="button" (click)="renaming.set(false)">Cancel</button>
+          </div>
+        </form>
+      } @else {
+        <div class="envbar">
+          <strong>{{ env[0] }} / {{ env[1] }}</strong>
+          <div class="row">
+            <button type="button" data-testid="rename-env" (click)="startRename()">Rename</button>
+            <button type="button" data-testid="delete-env" (click)="removeEnv()">
+              {{ confirmDeleteEnv() ? "Confirm delete" : "Delete" }}
+            </button>
+          </div>
+          @if (confirmDeleteEnv()) {
+            <p class="notice">Deletes the environment and all its entries.</p>
+          }
+        </div>
+      }
       <button type="button" class="primary" (click)="select(null); editing.set('new')">New entry</button>
     }
     @for (e of visible(); track e.name) {

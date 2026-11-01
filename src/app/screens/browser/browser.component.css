@@ -1,10 +1,13 @@
-.browser { display: grid; grid-template-columns: 12rem 14rem 1fr; height: 100%; }
-nav, .list { border-right: 1px solid var(--line); padding: 0.75rem; display: flex; flex-direction: column; gap: 0.35rem; overflow: auto; }
+.browser { display: grid; grid-template-columns: 15rem 16rem 1fr; height: 100%; }
+nav, .list { min-width: 0; border-right: 1px solid var(--line); padding: 0.75rem; display: flex; flex-direction: column; gap: 0.35rem; overflow: auto; }
 .detail { padding: 1rem; display: grid; align-content: start; gap: 0.75rem; }
 h3 { margin: 0.75rem 0 0; font-size: 0.8rem; color: var(--muted); text-transform: uppercase; }
 .env, .entry { text-align: left; border-color: transparent; }
 .active { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-.newenv { display: grid; gap: 0.35rem; margin-top: 1rem; }
+.newenv { display: grid; gap: 0.35rem; margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--line); }
+.newenv input, .newenv button, .envbar input { box-sizing: border-box; width: 100%; min-width: 0; }
+.envbar { display: grid; gap: 0.4rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--line); margin-bottom: 0.25rem; }
+.envbar strong { overflow-wrap: anywhere; }
 .value { font-family: ui-monospace, monospace; word-break: break-all; margin: 0; }
 .row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .err { color: var(--danger); margin: 0; }

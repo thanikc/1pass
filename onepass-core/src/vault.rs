@@ -173,6 +173,28 @@ impl Body {
         Ok(())
     }
 
+    pub fn rename_environment(&mut self, project: &str, from: &str, to: &str) -> Result<(), Error> {
+        validate_name(to)?;
+        let p = self
+            .projects
+            .get_mut(project)
+            .ok_or_else(|| invalid("no such project"))?;
+        if from == to {
+            return p
+                .contains_key(from)
+                .then_some(())
+                .ok_or_else(|| invalid("no such environment"));
+        }
+        if p.contains_key(to) {
+            return Err(invalid("an environment with that name already exists"));
+        }
+        let env = p
+            .remove(from)
+            .ok_or_else(|| invalid("no such environment"))?;
+        p.insert(to.into(), env);
+        Ok(())
+    }
+
     /// `value: None` keeps the existing value. `rename_from` moves an existing entry.
     pub fn save_entry(
         &mut self,
@@ -636,6 +658,18 @@ mod tests {
         let mut b = body_with("A", "1");
         b.delete_environment("p", "e").unwrap();
         assert!(b.projects.is_empty());
+    }
+
+    #[test]
+    fn rename_environment_moves_entries_and_rejects_clashes() {
+        let mut b = body_with("A", "1");
+        b.create_environment("p", "other").unwrap();
+        assert!(b.rename_environment("p", "e", "other").is_err());
+        assert!(b.rename_environment("p", "nope", "x").is_err());
+        assert!(b.rename_environment("p", "e", " ").is_err());
+        b.rename_environment("p", "e", "prod").unwrap();
+        assert!(b.projects["p"].get("e").is_none());
+        assert!(b.projects["p"]["prod"].contains_key("A"));
     }
 
     #[test]

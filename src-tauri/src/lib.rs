@@ -99,6 +99,7 @@ pub fn run() {
             commands::save_entry,
             commands::delete_entry,
             commands::delete_environment,
+            commands::rename_environment,
             commands::reveal_entry,
             commands::copy_entry_value,
             commands::copy_reference,

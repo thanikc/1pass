@@ -16,6 +16,8 @@ async function setup(overrides: Record<string, unknown> = {}, entries = ENTRIES)
     copyReference: vi.fn().mockResolvedValue(undefined),
     deleteEntry: vi.fn().mockResolvedValue(undefined),
     createEnvironment: vi.fn().mockResolvedValue(undefined),
+    renameEnvironment: vi.fn().mockResolvedValue(undefined),
+    deleteEnvironment: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
   TestBed.configureTestingModule({ providers: [{ provide: VaultApi, useValue: fake }] });
@@ -47,6 +49,25 @@ describe("BrowserComponent", () => {
     await click("button.env", "prod");
     expect(el.textContent).toContain("THREE");
     expect(el.textContent).not.toContain("ONE");
+  });
+
+  it("renames the selected environment", async () => {
+    const { el, fake, click, flush } = await setup();
+    await click("[data-testid=rename-env]");
+    const input = el.querySelector<HTMLInputElement>("input[name=rename]")!;
+    input.value = "staging";
+    input.dispatchEvent(new Event("input"));
+    await flush();
+    await click("button[type=submit]", "Save");
+    expect(fake.renameEnvironment).toHaveBeenCalledWith("a", "dev", "staging");
+  });
+
+  it("deletes an environment only after confirmation", async () => {
+    const { fake, click } = await setup();
+    await click("[data-testid=delete-env]");
+    expect(fake.deleteEnvironment).not.toHaveBeenCalled();
+    await click("[data-testid=delete-env]");
+    expect(fake.deleteEnvironment).toHaveBeenCalledWith("a", "dev");
   });
 
   it("masks by default and reveals only on request", async () => {

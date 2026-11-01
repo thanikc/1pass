@@ -30,6 +30,8 @@ export class VaultApi {
   saveEntry = (a: SaveEntryArgs) => invoke<void>("save_entry", { ...a });
   deleteEntry = (project: string, environment: string, name: string) =>
     invoke<void>("delete_entry", { project, environment, name });
+  renameEnvironment = (project: string, from: string, to: string) =>
+    invoke<void>("rename_environment", { project, from, to });
   deleteEnvironment = (project: string, environment: string) =>
     invoke<void>("delete_environment", { project, environment });
   revealEntry = (project: string, environment: string, name: string) =>

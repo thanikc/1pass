@@ -28,6 +28,9 @@ export class BrowserComponent implements OnInit, OnDestroy {
   error = signal("");
   newProject = signal("");
   newEnv = signal("");
+  renaming = signal(false);
+  renameValue = signal("");
+  confirmDeleteEnv = signal(false);
 
   projects = computed(() => {
     const m = new Map<string, string[]>();
@@ -66,6 +69,8 @@ export class BrowserComponent implements OnInit, OnDestroy {
   }
 
   selectEnv(p: string, e: string): void {
+    this.renaming.set(false);
+    this.confirmDeleteEnv.set(false);
     this.selectedEnv.set([p, e]);
     this.select(null);
   }
@@ -133,6 +138,39 @@ export class BrowserComponent implements OnInit, OnDestroy {
     this.newEnv.set("");
     await this.load();
     this.selectEnv(p, e);
+  }
+
+  startRename(): void {
+    this.renameValue.set(this.selectedEnv()?.[1] ?? "");
+    this.confirmDeleteEnv.set(false);
+    this.renaming.set(true);
+  }
+
+  async renameEnv(event: Event): Promise<void> {
+    event.preventDefault();
+    const s = this.selectedEnv();
+    if (!s) return;
+    const to = this.renameValue();
+    await this.run(() => this.api.renameEnvironment(s[0], s[1], to));
+    if (this.error()) return;
+    this.renaming.set(false);
+    await this.load();
+    this.selectEnv(s[0], to);
+  }
+
+  async removeEnv(): Promise<void> {
+    const s = this.selectedEnv();
+    if (!s) return;
+    if (!this.confirmDeleteEnv()) {
+      this.confirmDeleteEnv.set(true);
+      return;
+    }
+    await this.run(() => this.api.deleteEnvironment(s[0], s[1]));
+    if (this.error()) return;
+    this.confirmDeleteEnv.set(false);
+    this.selectedEnv.set(null);
+    this.select(null);
+    await this.load();
   }
 
   async saved(name: string): Promise<void> {

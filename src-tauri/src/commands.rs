@@ -175,6 +175,17 @@ pub fn delete_entry(
 }
 
 #[tauri::command(async)]
+pub fn rename_environment(
+    s: State<'_, AppState>,
+    project: String,
+    from: String,
+    to: String,
+) -> R<()> {
+    s.session
+        .mutate(|b| b.rename_environment(&project, &from, &to))
+}
+
+#[tauri::command(async)]
 pub fn delete_environment(s: State<'_, AppState>, project: String, environment: String) -> R<()> {
     s.session
         .mutate(|b| b.delete_environment(&project, &environment))
