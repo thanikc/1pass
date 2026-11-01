@@ -17,6 +17,38 @@ npm test                   # Angular tests
 
 Linux needs the Tauri system libraries: `pkg-config libdbus-1-dev libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev`.
 
+## Bundle, install and run
+
+### 1. Bundle
+
+```bash
+npm run bundle
+```
+
+Packages are built into `target/release/bundle/` (`deb`, `rpm`, `appimage` on Linux; `dmg` on macOS).
+
+### 2. Install
+
+- **Debian / Ubuntu (.deb)**:
+  ```bash
+  sudo dpkg -i target/release/bundle/deb/one-pass_*.deb
+  # or: sudo apt install ./target/release/bundle/deb/one-pass_*.deb
+  ```
+- **Fedora / RHEL (.rpm)**:
+  ```bash
+  sudo rpm -i target/release/bundle/rpm/one-pass-*.rpm
+  ```
+- **AppImage**:
+  ```bash
+  chmod +x target/release/bundle/appimage/one-pass_*.AppImage
+  ./target/release/bundle/appimage/one-pass_*.AppImage
+  ```
+
+### 3. Run
+
+- **App**: Run `one-pass` in a terminal (or `one-pass &` in background), or launch **one-pass** from your desktop application menu.
+- **CLI**: The `.deb` and `.rpm` packages install `/usr/bin/op`. Test with `op --help`.
+
 ## Install `op`
 
 The installers from `npm run bundle` include `op`. A `.deb` or `.rpm` puts it in `/usr/bin`. On macOS and AppImage, use Settings → Command-line tool to install it (`/usr/local/bin/op` on macOS, `~/.local/bin/op` for AppImage). For source builds:
