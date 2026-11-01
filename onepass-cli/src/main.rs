@@ -113,6 +113,7 @@ fn main() {
             project_dir: project_dir.to_string_lossy().into_owned(),
             command: command.clone(),
             references: refs,
+            variables: Default::default(),
         };
         let values = connect()
             .and_then(|s| exchange(s, &req))
@@ -165,6 +166,7 @@ mod tests {
             project_dir: "/p".into(),
             command: vec!["x".into()],
             references: vec!["op://a/b/c".into()],
+            variables: Default::default(),
         }
     }
 

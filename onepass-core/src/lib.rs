@@ -21,6 +21,12 @@ pub enum Error {
     VersionMismatch { expected: u32, got: u32 },
     #[error("invalid reference: {0}")]
     BadReference(String),
+    #[error("too many denied requests, try again later")]
+    RateLimited,
+    #[error("too many pending requests")]
+    Busy,
+    #[error("invalid input: {0}")]
+    InvalidInput(String),
     #[error("io: {0}")]
     Io(String),
 }

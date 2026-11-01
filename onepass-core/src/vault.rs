@@ -3,7 +3,7 @@
 //! A random data key encrypts the body; the password-derived key only wraps the data key.
 use crate::{
     Error,
-    protocol::{PROTOCOL_VERSION, Reference, Request, Response},
+    protocol::{PROTOCOL_VERSION, Reference, Request, Response, validate_name},
 };
 use argon2::{Algorithm, Argon2, Params, Version};
 use chacha20poly1305::{
@@ -74,13 +74,212 @@ impl fmt::Debug for Entry {
 /// project -> environment -> entry name -> entry
 pub type Projects = BTreeMap<String, BTreeMap<String, BTreeMap<String, Entry>>>;
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalMode {
+    PerRun,
+    #[default]
+    TimeBoxed,
+    Remember,
+}
+
+/// A remembered grant: the hash plus what the grants list needs to display it.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct GrantRecord {
+    pub hash: String,
+    pub project_dir: String,
+    pub command_name: String,
+    pub references: Vec<String>,
+    pub created_at: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AuditOutcome {
+    Approved,
+    ApprovedByGrant,
+    Denied,
+    TimedOut,
+    Cancelled,
+    RateLimited,
+    Busy,
+    Locked,
+    EntryNotFound,
+    Invalid,
+}
+
+/// Metadata only: never values.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct AuditRecord {
+    pub at: u64,
+    pub project_dir: String,
+    pub entries: Vec<String>,
+    pub omitted: usize,
+    pub outcome: AuditOutcome,
+}
+
+const MAX_AUDIT: usize = 1000;
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Settings {
+    pub auto_lock_minutes: u32,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            auto_lock_minutes: 15,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct EntryMeta {
+    pub project: String,
+    pub environment: String,
+    pub name: String,
+    pub kind: String,
+    pub notes: String,
+}
+
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct Body {
     #[serde(default)]
     pub projects: Projects,
-    /// Persisted "remember" approval grants (hashes), invalidated when the key changes.
     #[serde(default)]
-    pub grants: Vec<String>,
+    pub remembered: Vec<GrantRecord>,
+    /// Keyed by canonical project directory.
+    #[serde(default)]
+    pub project_modes: BTreeMap<String, ApprovalMode>,
+    #[serde(default)]
+    pub settings: Settings,
+    #[serde(default)]
+    pub audit: Vec<AuditRecord>,
+}
+
+fn invalid(m: &str) -> Error {
+    Error::InvalidInput(m.into())
+}
+
+impl Body {
+    pub fn create_environment(&mut self, project: &str, environment: &str) -> Result<(), Error> {
+        validate_name(project)?;
+        validate_name(environment)?;
+        self.projects
+            .entry(project.into())
+            .or_default()
+            .entry(environment.into())
+            .or_default();
+        Ok(())
+    }
+
+    /// `value: None` keeps the existing value. `rename_from` moves an existing entry.
+    pub fn save_entry(
+        &mut self,
+        project: &str,
+        environment: &str,
+        name: &str,
+        rename_from: Option<&str>,
+        value: Option<Zeroizing<String>>,
+        notes: String,
+    ) -> Result<(), Error> {
+        validate_name(project)?;
+        validate_name(environment)?;
+        validate_name(name)?;
+        let old = rename_from.filter(|o| *o != name);
+        let env = self.projects.get(project).and_then(|p| p.get(environment));
+        if old.is_some() && env.is_some_and(|e| e.contains_key(name)) {
+            return Err(invalid("an entry with that name already exists"));
+        }
+        let existing = env.and_then(|e| e.get(old.unwrap_or(name))).cloned();
+        let mut entry = match (existing, value) {
+            (_, Some(v)) => Entry {
+                kind: default_type(),
+                value: v,
+                notes: String::new(),
+            },
+            (Some(e), None) => e,
+            (None, None) => return Err(invalid("a new entry needs a value")),
+        };
+        entry.notes = notes;
+        let env = self
+            .projects
+            .entry(project.into())
+            .or_default()
+            .entry(environment.into())
+            .or_default();
+        if let Some(o) = old {
+            env.remove(o);
+        }
+        env.insert(name.into(), entry);
+        Ok(())
+    }
+
+    pub fn delete_entry(
+        &mut self,
+        project: &str,
+        environment: &str,
+        name: &str,
+    ) -> Result<(), Error> {
+        self.projects
+            .get_mut(project)
+            .and_then(|p| p.get_mut(environment))
+            .and_then(|e| e.remove(name))
+            .map(|_| ())
+            .ok_or_else(|| Error::EntryNotFound(format!("op://{project}/{environment}/{name}")))
+    }
+
+    pub fn delete_environment(&mut self, project: &str, environment: &str) -> Result<(), Error> {
+        let p = self
+            .projects
+            .get_mut(project)
+            .ok_or_else(|| invalid("no such project"))?;
+        p.remove(environment)
+            .ok_or_else(|| invalid("no such environment"))?;
+        if p.is_empty() {
+            self.projects.remove(project);
+        }
+        Ok(())
+    }
+
+    pub fn metadata(&self) -> Vec<EntryMeta> {
+        let mut out = vec![];
+        for (project, envs) in &self.projects {
+            for (environment, entries) in envs {
+                for (name, e) in entries {
+                    out.push(EntryMeta {
+                        project: project.clone(),
+                        environment: environment.clone(),
+                        name: name.clone(),
+                        kind: e.kind.clone(),
+                        notes: e.notes.clone(),
+                    });
+                }
+            }
+        }
+        out
+    }
+
+    pub fn value(
+        &self,
+        project: &str,
+        environment: &str,
+        name: &str,
+    ) -> Result<&Zeroizing<String>, Error> {
+        self.projects
+            .get(project)
+            .and_then(|p| p.get(environment))
+            .and_then(|e| e.get(name))
+            .map(|e| &e.value)
+            .ok_or_else(|| Error::EntryNotFound(format!("op://{project}/{environment}/{name}")))
+    }
+
+    pub fn push_audit(&mut self, record: AuditRecord) {
+        self.audit.push(record);
+        if self.audit.len() > MAX_AUDIT {
+            self.audit.drain(..self.audit.len() - MAX_AUDIT);
+        }
+    }
 }
 
 pub struct Vault {
@@ -361,5 +560,123 @@ mod tests {
         sample().save(&path).unwrap();
         assert!(Vault::load(&path, b"pw").is_ok());
         std::fs::remove_file(path).unwrap();
+    }
+
+    fn body_with(name: &str, v: &str) -> Body {
+        let mut b = Body::default();
+        b.save_entry(
+            "p",
+            "e",
+            name,
+            None,
+            Some(Zeroizing::new(v.into())),
+            String::new(),
+        )
+        .unwrap();
+        b
+    }
+
+    #[test]
+    fn save_entry_creates_path_and_keeps_value_when_none() {
+        let mut b = body_with("A", "v");
+        b.save_entry("p", "e", "A", None, None, "n2".into())
+            .unwrap();
+        assert_eq!(**b.value("p", "e", "A").unwrap(), "v");
+        assert_eq!(b.projects["p"]["e"]["A"].notes, "n2");
+    }
+
+    #[test]
+    fn save_entry_rename_moves_and_refuses_collision() {
+        let mut b = body_with("A", "1");
+        b.save_entry("p", "e", "B", Some("A"), None, String::new())
+            .unwrap();
+        assert!(b.value("p", "e", "A").is_err());
+        assert_eq!(**b.value("p", "e", "B").unwrap(), "1");
+
+        let mut b = body_with("A", "1");
+        b.save_entry(
+            "p",
+            "e",
+            "B",
+            None,
+            Some(Zeroizing::new("2".into())),
+            String::new(),
+        )
+        .unwrap();
+        let before = serde_json::to_string(&b).unwrap();
+        let err = b.save_entry("p", "e", "B", Some("A"), None, String::new());
+        assert!(matches!(err, Err(Error::InvalidInput(_))));
+        assert_eq!(serde_json::to_string(&b).unwrap(), before);
+    }
+
+    #[test]
+    fn save_entry_rejects_bad_names() {
+        let mut b = Body::default();
+        for n in ["a/b", ""] {
+            let r = b.save_entry(
+                "p",
+                "e",
+                n,
+                None,
+                Some(Zeroizing::new("v".into())),
+                String::new(),
+            );
+            assert!(matches!(r, Err(Error::InvalidInput(_))), "{n}");
+        }
+        assert!(b.projects.is_empty());
+    }
+
+    #[test]
+    fn delete_environment_prunes_empty_project() {
+        let mut b = body_with("A", "1");
+        b.delete_environment("p", "e").unwrap();
+        assert!(b.projects.is_empty());
+    }
+
+    #[test]
+    fn metadata_has_no_values() {
+        let b = body_with("A", "s3cret");
+        let json = serde_json::to_string(&b.metadata()).unwrap();
+        assert!(!json.contains("s3cret") && json.contains("\"A\""));
+    }
+
+    #[test]
+    fn audit_is_capped_at_1000() {
+        let mut b = Body::default();
+        for i in 0..1001 {
+            b.push_audit(AuditRecord {
+                at: i,
+                project_dir: String::new(),
+                entries: vec![],
+                omitted: 0,
+                outcome: AuditOutcome::Approved,
+            });
+        }
+        assert_eq!((b.audit.len(), b.audit[0].at), (1000, 1));
+    }
+
+    #[test]
+    fn body_without_new_fields_opens() {
+        let b: Body = serde_json::from_str(r#"{"projects":{}}"#).unwrap();
+        assert_eq!(b.settings.auto_lock_minutes, 15);
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn prop_seal_open_round_trip(
+            n in "[A-Za-z0-9._-]{1,16}", val in ".{0,64}", notes in ".{0,32}",
+        ) {
+            let mut v = Vault::create_with(b"pw", FAST).unwrap();
+            v.body.save_entry("p", "e", &n, None, Some(Zeroizing::new(val.clone())), notes).unwrap();
+            let o = Vault::open(&v.seal().unwrap(), b"pw").unwrap();
+            proptest::prop_assert_eq!(&**o.body.value("p", "e", &n).unwrap(), &val);
+        }
+
+        #[test]
+        fn prop_open_never_panics(bytes in proptest::collection::vec(0u8..=255, 0..200), cut in 0usize..400) {
+            let _ = Vault::open(&bytes, b"pw");
+            let good = sample().seal().unwrap();
+            let _ = Vault::open(&good[..cut.min(good.len())], b"pw");
+        }
     }
 }
