@@ -56,6 +56,8 @@ export class VaultApi {
   setAutoLock = (minutes: number) => invoke<void>("set_auto_lock", { minutes });
   noteActivity = () => invoke<void>("note_activity");
   getIpcError = () => invoke<string | null>("get_ipc_error");
+  cliInstallTarget = () => invoke<string | null>("cli_install_target");
+  installCli = () => invoke<string>("install_cli");
 
   onVaultStateChanged = (cb: () => void) => this.on("vault-state-changed", cb);
   onApprovalsChanged = (cb: () => void) => this.on("approvals-changed", cb);

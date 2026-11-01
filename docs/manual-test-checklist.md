@@ -18,11 +18,17 @@ Run each section on its OS before a release. Automated tests cover logic; these 
 
 - [ ] `ls -l $XDG_RUNTIME_DIR/onepass.sock` shows `srw-------` and your user.
 - [ ] Dialog shows the calling PID and executable of `op`.
+- [ ] AppImage: Settings → Command-line tool copies `op` to `~/.local/bin`, and `op run -- true` works after restarting the app.
 
 ## macOS
 
 - [ ] Socket is under `$TMPDIR` with mode 0600.
 - [ ] Dialog shows the PID and executable path (this code path is not compiled on the Linux dev host).
+- [ ] Settings → Command-line tool from `/Applications`: admin prompt, then `ls -l /usr/local/bin/op` shows the link.
+- [ ] Cancel the admin prompt: an error shows and nothing changes.
+- [ ] Run from the mounted `.dmg`: refused.
+- [ ] Run from a folder with spaces and a quote in its name: the link is correct.
+- [ ] With Homebrew `op` at `/usr/local/bin/op`: refused and left intact.
 
 ## Windows (transport not implemented yet)
 

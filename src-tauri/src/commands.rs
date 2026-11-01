@@ -337,3 +337,24 @@ pub fn note_activity(s: State<'_, AppState>) -> R<()> {
 pub fn get_ipc_error(s: State<'_, AppState>) -> R<Option<String>> {
     Ok(guard(&s.ipc_error).clone())
 }
+
+fn cli_target() -> Option<std::path::PathBuf> {
+    crate::cli_install::target_for(
+        std::env::consts::OS,
+        std::env::var_os("APPIMAGE").as_deref(),
+        std::env::home_dir().as_deref(),
+    )
+}
+
+#[tauri::command(async)]
+pub fn cli_install_target() -> R<Option<String>> {
+    Ok(cli_target().map(|p| p.display().to_string()))
+}
+
+#[tauri::command(async)]
+pub fn install_cli() -> R<String> {
+    let dest = cli_target().ok_or_else(|| Error::InvalidInput("nothing to install here".into()))?;
+    let exe = std::env::current_exe().map_err(|e| Error::Io(e.to_string()))?;
+    crate::cli_install::install(&exe, &dest)?;
+    Ok(dest.display().to_string())
+}

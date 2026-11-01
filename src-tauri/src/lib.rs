@@ -1,5 +1,6 @@
 pub mod autolock;
 pub mod broker;
+pub mod cli_install;
 pub mod clipboard;
 mod commands;
 mod host;
@@ -114,6 +115,8 @@ pub fn run() {
             commands::set_auto_lock,
             commands::note_activity,
             commands::get_ipc_error,
+            commands::cli_install_target,
+            commands::install_cli,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
