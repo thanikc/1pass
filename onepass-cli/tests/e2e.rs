@@ -1,4 +1,5 @@
 //! Real `op` binary against a socket served from a real (in-memory) vault.
+#![cfg(unix)]
 use onepass_core::{
     protocol::Request,
     vault::{Entry, KdfParams, Vault},

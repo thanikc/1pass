@@ -1,14 +1,20 @@
 //! Dev-only stand-in for the desktop app: auto-allows everything, throwaway in-memory vault.
 //! Run: `cargo run -p onepass-core --example dev_server`, then `op run --env-file .env.example -- env`.
+#[cfg(unix)]
 use onepass_core::{
     protocol::Request,
     vault::{Entry, KdfParams, Vault},
 };
+#[cfg(unix)]
 use std::{
     io::{BufRead, BufReader, Write},
     os::unix::net::UnixListener,
 };
 
+#[cfg(not(unix))]
+fn main() {}
+
+#[cfg(unix)]
 fn main() {
     let mut v = Vault::create_with(
         b"dev",
