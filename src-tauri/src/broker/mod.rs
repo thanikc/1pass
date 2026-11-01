@@ -155,7 +155,10 @@ impl Broker {
             Ok((values, outcome)) => (Response::Ok(values), outcome),
             Err((e, outcome)) => (Response::Err(e), outcome),
         };
-        self.audit(&req, outcome);
+        // Not persisted: floods of these would evict real history and force a save each.
+        if !matches!(outcome, AuditOutcome::RateLimited | AuditOutcome::Busy) {
+            self.audit(&req, outcome);
+        }
         resp
     }
 
@@ -731,6 +734,8 @@ mod tests {
         }
         assert_eq!(err(e.run()), Error::RateLimited);
         assert_eq!(e.host.prompts(), 3);
+        // Rate-limited/busy rejections are not persisted, so a flood cannot evict real history.
+        assert_eq!(e.audit().len(), 3);
     }
 
     #[test]

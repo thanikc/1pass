@@ -94,6 +94,9 @@ impl Session {
     /// Install an opened vault and flush audit records buffered while locked.
     fn install(&self, mut v: Vault) {
         let mut g = self.inner();
+        if g.vault.is_some() {
+            return; // lost a race with another unlock: keep the newer in-memory state
+        }
         let pending = std::mem::take(&mut g.pending_audit);
         if !pending.is_empty() {
             // A failed save drops the buffered records but keeps the vault usable.
@@ -108,19 +111,25 @@ impl Session {
 
     pub fn create(&self, password: &[u8]) -> Result<(), Error> {
         check_password(password)?;
-        if self.path.exists() {
+        let v = Vault::create_with(password, self.kdf)?;
+        let mut g = self.inner();
+        // Check and write under the lock so two concurrent creates cannot both pass.
+        if g.vault.is_some() || self.path.exists() {
             return Err(Error::InvalidInput("a vault file already exists".into()));
         }
         if let Some(dir) = self.path.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        let v = Vault::create_with(password, self.kdf)?;
         v.save(&self.path)?;
-        self.install(v);
+        g.vault = Some(v);
+        self.unlocked.notify_all();
         Ok(())
     }
 
     pub fn unlock(&self, password: &[u8]) -> Result<(), Error> {
+        if self.is_unlocked() {
+            return Ok(());
+        }
         let v = Vault::load(&self.path, password)?;
         self.install(v);
         Ok(())
@@ -344,6 +353,14 @@ mod tests {
         assert_eq!(std::fs::read(&p).unwrap(), b"garbage");
         assert_eq!(s.status(), VaultStatus::Locked);
         assert_eq!(s.unlock(PW).unwrap_err(), Error::VaultCorrupt);
+    }
+
+    #[test]
+    fn unlock_when_already_unlocked_keeps_memory() {
+        let (s, _) = unlocked("reunlock");
+        add(&s, "A").unwrap();
+        s.unlock(b"not-the-password").unwrap();
+        assert!(has(&s, "A"));
     }
 
     #[test]
