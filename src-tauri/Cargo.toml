@@ -19,12 +19,13 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11.1"
-zeroize = "1.9.1"
+zeroize = { version = "1.9.1", features = ["serde"] }
 onepass-core = { version = "0.1.0", path = "../onepass-core" }
+tauri-plugin-single-instance = "2.5.5"
+tauri-plugin-clipboard-manager = "2.5.0"
 
 [target."cfg(unix)".dependencies]
 libc = "0.2.191"

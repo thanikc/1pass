@@ -38,6 +38,33 @@ impl ServerHandle {
     }
 }
 
+/// Releases a connection slot even if the handler panics.
+struct ConnSlot(Arc<AtomicUsize>);
+
+impl Drop for ConnSlot {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, SeqCst);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slot_is_released_on_panic() {
+        let n = Arc::new(AtomicUsize::new(1));
+        let n2 = n.clone();
+        let r = std::thread::spawn(move || {
+            let _slot = ConnSlot(n2);
+            panic!("handler panic");
+        })
+        .join();
+        assert!(r.is_err());
+        assert_eq!(n.load(SeqCst), 0);
+    }
+}
+
 pub fn serve(broker: Arc<Broker>, endpoint: PathBuf) -> Result<ServerHandle, Error> {
     serve_with(broker, endpoint, READ_TIMEOUT)
 }
@@ -58,7 +85,10 @@ pub fn serve_with(
             if stop2.load(SeqCst) {
                 break;
             }
-            let Ok(conn) = conn else { continue };
+            let Ok(conn) = conn else {
+                std::thread::sleep(Duration::from_millis(50)); // e.g. EMFILE: don't spin
+                continue;
+            };
             if !same_user(&conn) {
                 continue;
             }
@@ -69,8 +99,8 @@ pub fn serve_with(
             }
             let (broker, active) = (broker.clone(), active.clone());
             std::thread::spawn(move || {
+                let _slot = ConnSlot(active);
                 handle_conn(&broker, conn, read_timeout);
-                active.fetch_sub(1, SeqCst);
             });
         }
     });

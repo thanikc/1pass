@@ -144,8 +144,8 @@ impl Broker {
             Ok(r) => r,
             Err(e) => return Response::Err(e),
         };
+        // Not audited: cheap invalid requests would otherwise force a vault save each.
         if let Err(e) = validate(&mut req) {
-            self.audit(&req, AuditOutcome::Invalid);
             return Response::Err(e);
         }
         if req.references.is_empty() {
@@ -618,6 +618,14 @@ mod tests {
             .handle(raw.as_bytes(), Peer::default(), Arc::new(|| false));
         assert!(matches!(err(r), Error::InvalidInput(_)));
         assert_eq!(e.host.prompts(), 0);
+    }
+
+    #[test]
+    fn invalid_requests_are_not_audited() {
+        let e = env("noaudit", FakeHost::new(ALLOW), short());
+        let raw = body(&e.dir.join("missing"), &["op://p/e/A"], &["node"]);
+        let _ = e.broker.handle(&raw, Peer::default(), Arc::new(|| false));
+        assert!(e.audit().is_empty());
     }
 
     #[test]

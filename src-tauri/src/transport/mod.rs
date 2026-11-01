@@ -55,6 +55,12 @@ fn read_request<C: Conn>(conn: &mut C, timeout: Duration) -> Option<Result<Vec<u
     }
 }
 
+fn zeroize_values(resp: Response) {
+    if let Response::Ok(map) = resp {
+        map.into_values().for_each(|mut v| v.zeroize());
+    }
+}
+
 fn write_response<C: Conn>(conn: &mut C, resp: Response) -> io::Result<()> {
     // Capacity covers the worst case (6 bytes per escaped byte) so the buffer never
     // reallocates and leaves an unzeroized copy of a value behind.
@@ -68,12 +74,13 @@ fn write_response<C: Conn>(conn: &mut C, resp: Response) -> io::Result<()> {
         Response::Err(_) => 256,
     };
     let mut bytes = Zeroizing::new(Vec::with_capacity(cap));
-    serde_json::to_writer(&mut *bytes, &resp).map_err(io::Error::other)?;
+    if let Err(e) = serde_json::to_writer(&mut *bytes, &resp) {
+        zeroize_values(resp);
+        return Err(io::Error::other(e));
+    }
     bytes.push(b'\n');
     let out = conn.write_all(&bytes).and_then(|()| conn.flush());
-    if let Response::Ok(map) = resp {
-        map.into_values().for_each(|mut v| v.zeroize());
-    }
+    zeroize_values(resp);
     out
 }
 

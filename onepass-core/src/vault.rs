@@ -446,22 +446,27 @@ impl Vault {
                 got: req.version,
             });
         }
-        let mut out = BTreeMap::new();
+        // Look everything up before copying any value, so a miss leaves no partial secrets behind.
+        let mut found = Vec::with_capacity(req.references.len());
         for r in &req.references {
-            let found = Reference::parse(r).and_then(|p| {
+            let hit = Reference::parse(r).and_then(|p| {
                 self.body
                     .projects
                     .get(p.project)
                     .and_then(|e| e.get(p.environment))
                     .and_then(|n| n.get(p.entry))
-                    .map(|e| e.value.to_string())
+                    .map(|e| &e.value)
                     .ok_or_else(|| Error::EntryNotFound(r.clone()))
             });
-            match found {
-                Ok(v) => out.insert(r.clone(), v),
+            match hit {
+                Ok(v) => found.push((r, v)),
                 Err(e) => return Response::Err(e),
-            };
+            }
         }
+        let out = found
+            .into_iter()
+            .map(|(r, v)| (r.clone(), v.to_string()))
+            .collect();
         Response::Ok(out)
     }
 
