@@ -10,7 +10,7 @@
         <div class="muted">{{ g.references.join(", ") }}</div>
         <div class="muted">{{ expiry(g) }}</div>
       </div>
-      <button type="button" class="danger" data-testid="revoke" (click)="revoke(g.hash)">Revoke</button>
+      <button data-icon="x" type="button" class="danger" data-testid="revoke" (click)="revoke(g.hash)">Revoke</button>
     </div>
   } @empty {
     <p class="muted">No active approvals.</p>

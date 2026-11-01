@@ -12,7 +12,7 @@
   @if (cliTarget()) {
     <h2>Command-line tool</h2>
     <p class="muted">Installs <code>op</code> to {{ cliTarget() }}.</p>
-    <button type="button" name="install-cli" (click)="installCli()">Install command-line tool</button>
+    <button data-icon="download" type="button" name="install-cli" (click)="installCli()">Install command-line tool</button>
     @if (cliError()) {
       <p role="alert" class="err">{{ cliError() }}</p>
     }
@@ -39,6 +39,6 @@
     @if (notice()) {
       <p class="muted" role="status">{{ notice() }}</p>
     }
-    <button type="submit" [disabled]="!canChange()">Change password</button>
+    <button data-icon="lock" type="submit" [disabled]="!canChange()">Change password</button>
   </form>
 </section>

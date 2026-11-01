@@ -18,9 +18,14 @@
       @if (!projects().length) {
         <p>Create a project to start storing secrets.</p>
       }
-      <input name="project" placeholder="project" aria-label="Project name" [value]="newProject()" (input)="newProject.set(text($event))" />
+      <input name="project" list="project-names" autocomplete="off" placeholder="project" aria-label="Project name" [value]="newProject()" (input)="newProject.set(text($event))" />
+      <datalist id="project-names">
+        @for (p of projects(); track p[0]) {
+          <option [value]="p[0]"></option>
+        }
+      </datalist>
       <input name="environment" placeholder="environment" aria-label="Environment name" [value]="newEnv()" (input)="newEnv.set(text($event))" />
-      <button type="submit" [disabled]="!newProject() || !newEnv()">Add</button>
+      <button data-icon="plus" type="submit" [disabled]="!newProject() || !newEnv()">Add</button>
     </form>
   </nav>
 
@@ -30,25 +35,20 @@
         <form class="envbar" (submit)="renameEnv($event)">
           <input name="rename" aria-label="New environment name" [value]="renameValue()" (input)="renameValue.set(text($event))" />
           <div class="row">
-            <button type="submit" [disabled]="!renameValue()">Save</button>
-            <button type="button" (click)="renaming.set(false)">Cancel</button>
+            <button data-icon="check" type="submit" [disabled]="!renameValue()">Save</button>
+            <button data-icon="x" type="button" (click)="renaming.set(false)">Cancel</button>
           </div>
         </form>
       } @else {
         <div class="envbar">
           <strong>{{ env[0] }} / {{ env[1] }}</strong>
           <div class="row">
-            <button type="button" data-testid="rename-env" (click)="startRename()">Rename</button>
-            <button type="button" class="danger" [class.confirming]="confirmDeleteEnv()" data-testid="delete-env" (click)="removeEnv()" (blur)="confirmDeleteEnv.set(false)">
-              {{ confirmDeleteEnv() ? "Confirm delete" : "Delete" }}
-            </button>
+            <button data-icon="edit" type="button" data-testid="rename-env" (click)="startRename()" title="Rename"><span class="sr-only">Rename</span></button>
+            <button data-icon="trash" type="button" class="danger" data-testid="delete-env" (click)="confirm.set('env')" title="Delete"><span class="sr-only">Delete</span></button>
           </div>
-          @if (confirmDeleteEnv()) {
-            <p class="notice" role="status">Deletes the environment and all its entries.</p>
-          }
         </div>
       }
-      <button type="button" class="primary" (click)="select(null); editing.set('new')">New entry</button>
+      <button data-icon="plus" type="button" class="primary" (click)="select(null); editing.set('new')">New entry</button>
     }
     @for (e of visible(); track e.name) {
       <button type="button" class="entry" [class.active]="e.name === selectedName()" (click)="select(e.name)">
@@ -73,20 +73,29 @@
           <p class="notes">{{ e.notes }}</p>
         }
         <div class="row">
-          <button type="button" data-testid="reveal" (click)="reveal()">Reveal</button>
-          <button type="button" data-testid="copy" (click)="copyValue()">Copy</button>
-          <button type="button" data-testid="copyref" (click)="copyRef()">Copy Reference</button>
-          <button type="button" (click)="editing.set('edit')">Edit</button>
-          <button type="button" class="danger" [class.confirming]="confirmDelete()" data-testid="delete" (click)="remove()" (blur)="confirmDelete.set(false)">
-            {{ confirmDelete() ? "Confirm delete" : "Delete" }}
-          </button>
+          <button data-icon="reveal" type="button" data-testid="reveal" (click)="reveal()" title="Reveal"><span class="sr-only">Reveal</span></button>
+          <button data-icon="copy" type="button" data-testid="copy" (click)="copyValue()" title="Copy"><span class="sr-only">Copy</span></button>
+          <button data-icon="link" type="button" data-testid="copyref" (click)="copyRef()" title="Copy Reference"><span class="sr-only">Copy Reference</span></button>
+          <button data-icon="edit" type="button" (click)="editing.set('edit')" title="Edit"><span class="sr-only">Edit</span></button>
+          <button data-icon="trash" type="button" class="danger" data-testid="delete" (click)="confirm.set('entry')" title="Delete"><span class="sr-only">Delete</span></button>
         </div>
-        @if (confirmDelete()) {
-          <p class="notice" role="status">Deletes this entry permanently.</p>
-        } @else if (notice()) {
+        @if (notice()) {
           <p class="notice" role="status">{{ notice() }}</p>
         }
       }
     }
   </section>
+
+  @if (confirm(); as kind) {
+    <div class="backdrop">
+      <div class="dialog" #dlg role="alertdialog" aria-modal="true" aria-labelledby="cd-title" aria-describedby="cd-desc" (keydown)="confirmKey($event, dlg)">
+        <h2 id="cd-title">{{ kind === "env" ? "Delete environment?" : "Delete entry?" }}</h2>
+        <p id="cd-desc" class="notice">{{ kind === "env" ? "Deletes the environment and all its entries." : "Deletes this entry permanently." }}</p>
+        <div class="row end">
+          <button data-icon="x" type="button" #cancel data-testid="cancel-delete" (click)="confirm.set(null)">Cancel</button>
+          <button data-icon="trash" type="button" class="danger primary" data-testid="confirm-delete" (click)="kind === 'env' ? removeEnv() : remove()">Delete</button>
+        </div>
+      </div>
+    </div>
+  }
 </div>

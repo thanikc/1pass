@@ -1,29 +1,30 @@
 :root {
-  --bg: #fafafa;
-  --fg: #1c1c1e;
-  --muted: #6b6b70;
-  --line: #d8d8dc;
-  --accent: #2455d6;
+  --bg: #f4f7f9;
+  --surface: #fff;
+  --fg: #14232c;
+  --muted: #566a76;
+  --line: #d3dde3;
+  --accent: #0e7490;
   --danger: #b3261e;
   --danger-bg: #fdecea;
   --on-accent: #fff;
   --active-bg: color-mix(in srgb, var(--accent) 18%, transparent);
   --scrim: rgb(0 0 0 / 0.45);
-  color-scheme: light dark;
+  color-scheme: light;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 15px;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1b1b1e;
-    --fg: #ececf0;
-    --muted: #9a9aa2;
-    --line: #34343a;
-    --accent: #7c9bff;
-    --danger: #ff8a80;
-    --danger-bg: #3b1d1b;
-    --on-accent: #101014;
-  }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1a22;
+  --surface: #172530;
+  --fg: #e6edf1;
+  --muted: #8497a3;
+  --line: #2a3b47;
+  --accent: #4fb3c8;
+  --danger: #ff8a80;
+  --danger-bg: #3b1d1b;
+  --on-accent: #04161c;
 }
 body {
   margin: 0;
@@ -71,10 +72,6 @@ button.danger {
   color: var(--danger);
   border-color: var(--danger);
 }
-button.danger.confirming {
-  background: var(--danger);
-  color: var(--on-accent);
-}
 button:disabled {
   opacity: 0.5;
   cursor: default;
@@ -106,3 +103,25 @@ button:disabled {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* Button icons: add data-icon="name" to a button. */
+button[data-icon] { display: inline-flex; align-items: center; gap: 0.4rem; }
+button[data-icon]::before { content: ""; width: 1.1em; height: 1.1em; flex: none; background: currentColor; mask: var(--i) center / contain no-repeat; }
+button[data-icon="copy"] { --i: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2024%2024%27%20fill=%27none%27%20stroke=%27black%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%3E%3Cpath%20d=%27M9%209h11v11H9z%20M5%2015V5h10%27/%3E%3C/svg%3E"); }
+button[data-icon="reveal"] { --i: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2024%2024%27%20fill=%27none%27%20stroke=%27black%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%3E%3Cpath%20d=%27M2%2012s4-7%2010-7%2010%207%2010%207-4%207-10%207S2%2012%202%2012z%20M9.5%2012a2.5%202.5%200%201%200%205%200%202.5%202.5%200%201%200-5%200%27/%3E%3C/svg%3E"); }
+button[data-icon="link"] { --i: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2024%2024%27%20fill=%27none%27%20stroke=%27black%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%3E%3Cpath%20d=%27M10%2014a4%204%200%200%200%205.7%200l3-3a4%204%200%200%200-5.7-5.7l-1%201%20M14%2010a4%204%200%200%200-5.7%200l-3%203a4%204%200%200%200%205.7%205.7l1-1%27/%3E%3C/svg%3E"); }
+button[data-icon="edit"] { --i: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2024%2024%27%20fill=%27none%27%20stroke=%27black%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%3E%3Cpath%20d=%27M4%2020h4L19%209l-4-4L4%2016z%27/%3E%3C/svg%3E"); }
+button[data-icon="trash"] { --i: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2024%2024%27%20fill=%27none%27%20stroke=%27black%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%3E%3Cpath%20d=%27M4%207h16%20M9%207V4h6v3%20M6%207l1%2013h10l1-13%27/%3E%3C/svg%3E"); }
+button[data-icon="plus"] { --i: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2024%2024%27%20fill=%27none%27%20stroke=%27black%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%3E%3Cpath%20d=%27M12%205v14%20M5%2012h14%27/%3E%3C/svg%3E"); }
+button[data-icon="check"] { --i: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2024%2024%27%20fill=%27none%27%20stroke=%27black%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%3E%3Cpath%20d=%27M5%2012l5%205%209-10%27/%3E%3C/svg%3E"); }
+button[data-icon="x"] { --i: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2024%2024%27%20fill=%27none%27%20stroke=%27black%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%3E%3Cpath%20d=%27M6%206l12%2012%20M18%206L6%2018%27/%3E%3C/svg%3E"); }
+button[data-icon="download"] { --i: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2024%2024%27%20fill=%27none%27%20stroke=%27black%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%3E%3Cpath%20d=%27M12%204v11%20M7%2011l5%205%205-5%20M5%2020h14%27/%3E%3C/svg%3E"); }
+button[data-icon="lock"] { --i: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2024%2024%27%20fill=%27none%27%20stroke=%27black%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%3E%3Cpath%20d=%27M5%2011h14v10H5z%20M8%2011V7a4%204%200%200%201%208%200v4%27/%3E%3C/svg%3E"); }
+button[data-icon="unlock"] { --i: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2024%2024%27%20fill=%27none%27%20stroke=%27black%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%3E%3Cpath%20d=%27M5%2011h14v10H5z%20M8%2011V7a4%204%200%200%201%207-2.6%27/%3E%3C/svg%3E"); }
+button[data-icon="sun"] { --i: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2024%2024%27%20fill=%27none%27%20stroke=%27black%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%3E%3Cpath%20d=%27M12%208a4%204%200%201%200%200%208%204%204%200%201%200%200-8%20M12%202v2%20M12%2020v2%20M2%2012h2%20M20%2012h2%20M5%205l1.5%201.5%20M17.5%2017.5L19%2019%20M5%2019l1.5-1.5%20M17.5%206.5L19%205%27/%3E%3C/svg%3E"); }
+button[data-icon="moon"] { --i: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2024%2024%27%20fill=%27none%27%20stroke=%27black%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%3E%3Cpath%20d=%27M21%2013A9%209%200%201%201%2011%203a7%207%200%200%200%2010%2010z%27/%3E%3C/svg%3E"); }
+.backdrop { position: fixed; inset: 0; background: var(--scrim); display: grid; place-items: center; z-index: 10; }
+.dialog { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 1.25rem; width: min(34rem, 92vw); display: grid; gap: 0.75rem; }
+.dialog h2 { margin: 0; font-size: 1.1rem; }
+.row.end { justify-content: flex-end; }
+button.danger.primary { background: var(--danger); border-color: var(--danger); color: var(--on-accent); }

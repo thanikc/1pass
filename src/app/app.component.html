@@ -13,8 +13,14 @@
   @case ("unlocked") {
     <main class="shell">
       <h1 class="sr-only">one-pass</h1>
-      <div class="bar">
-        <div class="tabs" role="tablist" aria-label="Sections" (keydown)="tabKey($event)">
+      <header class="bar">
+        <span class="brand">one-pass</span>
+        <button type="button" class="lock" data-testid="lock" (click)="lock()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11h14v10H5z M8 11V7a4 4 0 0 1 8 0v4" /></svg>Lock</button>
+        <button type="button" class="theme" data-testid="theme" [attr.data-icon]="theme() === 'dark' ? 'sun' : 'moon'" [title]="theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'" (click)="toggleTheme()"><span class="sr-only">{{ theme() === "dark" ? "Switch to light theme" : "Switch to dark theme" }}</span></button>
+      </header>
+      <div class="body">
+        <div class="side" [class.collapsed]="collapsed()">
+        <div class="tabs" role="tablist" aria-orientation="vertical" aria-label="Sections" (keydown)="tabKey($event)">
           @for (t of tabs; track t[0]) {
             <button
               type="button"
@@ -23,12 +29,15 @@
               aria-controls="panel"
               [attr.aria-selected]="tab() === t[0]"
               [tabindex]="tab() === t[0] ? 0 : -1"
+              [title]="t[1]"
               (click)="tab.set(t[0])"
-            >{{ t[1] }}</button>
+            ><svg viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="t[2]" /></svg><span class="label">{{ t[1] }}</span></button>
           }
         </div>
-        <button type="button" class="lock" data-testid="lock" (click)="lock()">Lock</button>
-      </div>
+        <button type="button" class="collapse" [attr.aria-expanded]="!collapsed()" [attr.aria-label]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'" [title]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'" (click)="collapsed.set(!collapsed())">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+        </button>
+        </div>
       <div class="panel" id="panel" role="tabpanel" [attr.aria-labelledby]="'tab-' + tab()">
         @switch (tab()) {
           @case ("vault") { <app-browser /> }
@@ -36,6 +45,7 @@
           @case ("audit") { <app-audit /> }
           @case ("settings") { <app-settings /> }
         }
+      </div>
       </div>
     </main>
   }

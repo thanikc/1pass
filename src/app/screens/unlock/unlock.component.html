@@ -32,7 +32,7 @@
     @if (error()) {
       <p role="alert">{{ error() }}</p>
     }
-    <button type="submit" [disabled]="!valid() || busy()">
+    <button data-icon="unlock" type="submit" [disabled]="!valid() || busy()">
       {{ creating() ? "Create vault" : "Unlock" }}
     </button>
   }

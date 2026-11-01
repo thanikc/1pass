@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from "@angular/core";
+import { Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, signal, viewChild } from "@angular/core";
 import { errorMessage } from "../../api/errors";
 import { EntryMeta } from "../../api/types";
 import { VaultApi } from "../../api/vault-api";
@@ -23,14 +23,23 @@ export class BrowserComponent implements OnInit, OnDestroy {
   selectedName = signal<string | null>(null);
   revealed = signal<string | null>(null);
   editing = signal<"new" | "edit" | null>(null);
-  confirmDelete = signal(false);
+  confirm = signal<"entry" | "env" | null>(null);
+  private cancelBtn = viewChild<ElementRef<HTMLButtonElement>>("cancel");
   notice = signal("");
   error = signal("");
   newProject = signal("");
   newEnv = signal("");
   renaming = signal(false);
   renameValue = signal("");
-  confirmDeleteEnv = signal(false);
+
+  constructor() {
+    effect((onCleanup) => {
+      if (!this.confirm()) return;
+      const opener = document.activeElement as HTMLElement | null;
+      queueMicrotask(() => this.cancelBtn()?.nativeElement.focus());
+      onCleanup(() => opener?.isConnected && queueMicrotask(() => opener.focus()));
+    });
+  }
 
   projects = computed(() => {
     const m = new Map<string, string[]>();
@@ -70,7 +79,6 @@ export class BrowserComponent implements OnInit, OnDestroy {
 
   selectEnv(p: string, e: string): void {
     this.renaming.set(false);
-    this.confirmDeleteEnv.set(false);
     this.selectedEnv.set([p, e]);
     this.select(null);
   }
@@ -78,7 +86,6 @@ export class BrowserComponent implements OnInit, OnDestroy {
   select(name: string | null): void {
     this.hide();
     this.selectedName.set(name);
-    this.confirmDelete.set(false);
     this.editing.set(null);
     this.notice.set("");
   }
@@ -120,10 +127,7 @@ export class BrowserComponent implements OnInit, OnDestroy {
   async remove(): Promise<void> {
     const e = this.selected();
     if (!e) return;
-    if (!this.confirmDelete()) {
-      this.confirmDelete.set(true);
-      return;
-    }
+    this.confirm.set(null);
     await this.run(() => this.api.deleteEntry(e.project, e.environment, e.name));
     this.select(null);
     await this.load();
@@ -142,7 +146,6 @@ export class BrowserComponent implements OnInit, OnDestroy {
 
   startRename(): void {
     this.renameValue.set(this.selectedEnv()?.[1] ?? "");
-    this.confirmDeleteEnv.set(false);
     this.renaming.set(true);
   }
 
@@ -161,16 +164,25 @@ export class BrowserComponent implements OnInit, OnDestroy {
   async removeEnv(): Promise<void> {
     const s = this.selectedEnv();
     if (!s) return;
-    if (!this.confirmDeleteEnv()) {
-      this.confirmDeleteEnv.set(true);
-      return;
-    }
+    this.confirm.set(null);
     await this.run(() => this.api.deleteEnvironment(s[0], s[1]));
     if (this.error()) return;
-    this.confirmDeleteEnv.set(false);
     this.selectedEnv.set(null);
     this.select(null);
     await this.load();
+  }
+
+  /** Escape cancels; Tab stays inside the dialog. */
+  confirmKey(e: KeyboardEvent, dialog: HTMLElement): void {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      this.confirm.set(null);
+    } else if (e.key === "Tab") {
+      const [first, last] = [dialog.querySelector("button")!, dialog.querySelector("button:last-of-type")!] as HTMLElement[];
+      const active = document.activeElement;
+      if (e.shiftKey && active === first) (e.preventDefault(), last.focus());
+      else if (!e.shiftKey && active === last) (e.preventDefault(), first.focus());
+    }
   }
 
   async saved(name: string): Promise<void> {

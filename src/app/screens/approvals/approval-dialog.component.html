@@ -39,8 +39,8 @@
         <p class="note">{{ waiting() }} more waiting</p>
       }
       <div class="row">
-        <button type="button" #deny data-testid="deny" (click)="deny_()">Deny</button>
-        <button type="button" class="primary" data-testid="allow" [disabled]="!armed()" (click)="allow()">Allow</button>
+        <button data-icon="x" type="button" #deny data-testid="deny" (click)="deny_()">Deny</button>
+        <button data-icon="check" type="button" class="primary" data-testid="allow" [disabled]="!armed()" (click)="allow()">Allow</button>
       </div>
     </div>
   </div>

@@ -5,9 +5,19 @@
   color: var(--danger);
 }
 .shell { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100dvh; }
-.bar { display: flex; gap: 0.25rem; padding: 0.5rem; border-bottom: 1px solid var(--line); }
-.tabs { display: flex; gap: 0.25rem; }
-.tabs button { border-color: transparent; }
-.tabs [aria-selected="true"] { background: var(--active-bg); }
-.lock { margin-left: auto; }
-.panel { min-height: 0; overflow: auto; }
+.bar { display: flex; align-items: center; gap: 0.25rem; padding: 0.5rem 0.75rem; background: var(--surface); border-bottom: 1px solid var(--line); }
+.brand { font-weight: 600; }
+.lock { margin-left: auto; display: flex; align-items: center; gap: 0.4rem; }
+.body { display: flex; min-height: 0; }
+.side { display: flex; flex-direction: column; gap: 0.25rem; width: 11rem; padding: 0.75rem; box-sizing: border-box; background: var(--surface); border-right: 1px solid var(--line); }
+.side.collapsed { width: 3.5rem; padding-inline: 0.5rem; }
+.tabs { display: flex; flex-direction: column; gap: 0.25rem; }
+.side button { display: flex; align-items: center; gap: 0.6rem; }
+.collapse { margin-top: auto; margin-left: auto; border-color: transparent; }
+.collapsed .collapse svg { transform: rotate(180deg); }
+.collapsed .collapse, .collapsed .tabs button { justify-content: center; margin-left: 0; }
+.collapsed .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+svg { width: 1.1rem; height: 1.1rem; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tabs button { border-color: transparent; text-align: left; }
+.tabs [aria-selected="true"] { background: var(--active-bg); border-color: var(--accent); }
+.panel { flex: 1; min-width: 0; min-height: 0; overflow: auto; }

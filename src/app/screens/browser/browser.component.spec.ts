@@ -66,7 +66,7 @@ describe("BrowserComponent", () => {
     const { fake, click } = await setup();
     await click("[data-testid=delete-env]");
     expect(fake.deleteEnvironment).not.toHaveBeenCalled();
-    await click("[data-testid=delete-env]");
+    await click("[data-testid=confirm-delete]");
     expect(fake.deleteEnvironment).toHaveBeenCalledWith("a", "dev");
   });
 
@@ -132,7 +132,10 @@ describe("BrowserComponent", () => {
     await click("button.entry", "ONE");
     await click("[data-testid=delete]");
     expect(fake.deleteEntry).not.toHaveBeenCalled();
+    await click("[data-testid=cancel-delete]");
+    expect(fake.deleteEntry).not.toHaveBeenCalled();
     await click("[data-testid=delete]");
+    await click("[data-testid=confirm-delete]");
     expect(fake.deleteEntry).toHaveBeenCalledWith("a", "dev", "ONE");
   });
 
