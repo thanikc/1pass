@@ -43,8 +43,10 @@ pub fn classify(dest: &Path, source: &Path) -> Result<Existing, Error> {
     if meta.is_symlink() && fs::read_link(dest).map_err(io)? == source {
         return Ok(Existing::Ours);
     }
-    if !dest.exists() {
-        return Ok(Existing::Absent); // dangling symlink
+    match fs::metadata(dest) {
+        Err(_) => return Ok(Existing::Absent), // dangling symlink
+        Ok(m) if !m.is_file() => return Ok(Existing::Foreign), // never read a FIFO or device
+        Ok(_) => {}
     }
     Ok(
         if fs::read(dest).map_err(io)? == fs::read(source).map_err(io)? {
@@ -92,7 +94,12 @@ fn place(source: &Path, dest: &Path) -> Result<(), Error> {
             .mode(0o755)
             .open(&tmp)?;
         std::io::copy(&mut fs::File::open(source)?, &mut out)?;
-        fs::rename(&tmp, dest)
+        if fs::symlink_metadata(dest).is_ok_and(|m| m.is_symlink()) && !dest.exists() {
+            fs::remove_file(dest)?; // dangling
+        }
+        // hard_link fails if dest appeared since classify, unlike rename.
+        fs::hard_link(&tmp, dest)?;
+        fs::remove_file(&tmp)
     };
     // shortcut: an older copy from a previous AppImage counts as Foreign, so upgrades need a manual delete; upgrade if AppImage users hit this.
     write().map_err(|e| {
@@ -102,12 +109,14 @@ fn place(source: &Path, dest: &Path) -> Result<(), Error> {
 }
 
 #[cfg(target_os = "macos")]
-fn place(source: &Path, _dest: &Path) -> Result<(), Error> {
+fn place(source: &Path, dest: &Path) -> Result<(), Error> {
     let out = std::process::Command::new("/usr/bin/osascript")
         .args(["-e", "on run argv"])
-        .args(["-e", r#"do shell script "mkdir -p /usr/local/bin && ln -sfn " & quoted form of item 1 of argv & " /usr/local/bin/op" with administrator privileges"#])
+        // Re-checks under root: only a dangling link is removed, and no -f, so a real `op` that appeared since classify is kept.
+        .args(["-e", r#"do shell script "mkdir -p /usr/local/bin && sh -c 'if [ -L \"$2\" ] && [ ! -e \"$2\" ]; then rm \"$2\"; fi; ln -sn \"$1\" \"$2\"' sh " & quoted form of item 1 of argv & " " & quoted form of item 2 of argv with administrator privileges"#])
         .args(["-e", "end run", "--"])
         .arg(source)
+        .arg(dest)
         .output()
         .map_err(io)?;
     if out.status.success() {
@@ -235,6 +244,14 @@ mod tests {
         fs::write(&dest, b"theirs").unwrap();
         assert!(install(&d.join("one-pass"), &dest).is_err());
         assert_eq!(fs::read(&dest).unwrap(), b"theirs");
+    }
+
+    #[test]
+    fn classify_directory_is_foreign() {
+        let d = tmp("dir");
+        let s = source(&d);
+        fs::create_dir(d.join("sub")).unwrap();
+        assert_eq!(classify(&d.join("sub"), &s).unwrap(), Existing::Foreign);
     }
 
     #[test]
