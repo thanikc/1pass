@@ -11,6 +11,6 @@
     <app-unlock status="locked" (unlocked)="refresh()" />
   }
   @case ("unlocked") {
-    <main class="shell"></main>
+    <main class="shell"><app-browser /></main>
   }
 }

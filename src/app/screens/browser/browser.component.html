@@ -1,0 +1,67 @@
+<div class="browser">
+  <nav aria-label="Projects">
+    @for (p of projects(); track p[0]) {
+      <h3>{{ p[0] }}</h3>
+      @for (e of p[1]; track e) {
+        <button
+          type="button"
+          class="env"
+          [class.active]="selectedEnv()?.[0] === p[0] && selectedEnv()?.[1] === e"
+          (click)="selectEnv(p[0], e)"
+        >
+          {{ e }}
+        </button>
+      }
+    }
+    <form class="newenv" (submit)="createEnv($event)">
+      @if (!projects().length) {
+        <p>Create a project to start storing secrets.</p>
+      }
+      <input name="project" placeholder="project" aria-label="Project name" [value]="newProject()" (input)="newProject.set(text($event))" />
+      <input name="environment" placeholder="environment" aria-label="Environment name" [value]="newEnv()" (input)="newEnv.set(text($event))" />
+      <button type="submit" [disabled]="!newProject() || !newEnv()">Add</button>
+    </form>
+  </nav>
+
+  <section class="list" aria-label="Entries">
+    @if (selectedEnv()) {
+      <button type="button" class="primary" (click)="select(null); editing.set('new')">New entry</button>
+    }
+    @for (e of visible(); track e.name) {
+      <button type="button" class="entry" [class.active]="e.name === selectedName()" (click)="select(e.name)">
+        {{ e.name }}
+      </button>
+    }
+  </section>
+
+  <section class="detail" aria-label="Detail">
+    @if (error()) {
+      <p role="alert" class="err">{{ error() }}</p>
+    }
+    @if (editing() === "new" && selectedEnv(); as env) {
+      <app-entry-editor [project]="env[0]" [environment]="env[1]" (saved)="saved($event)" (cancelled)="editing.set(null)" />
+    } @else if (selected(); as e) {
+      @if (editing() === "edit") {
+        <app-entry-editor [project]="e.project" [environment]="e.environment" [entry]="e" (saved)="saved($event)" (cancelled)="editing.set(null)" />
+      } @else {
+        <h2>{{ e.name }}</h2>
+        <p class="value" data-testid="value">{{ revealed() ?? "••••••••" }}</p>
+        @if (e.notes) {
+          <p class="notes">{{ e.notes }}</p>
+        }
+        <div class="row">
+          <button type="button" data-testid="reveal" (click)="reveal()">Reveal</button>
+          <button type="button" data-testid="copy" (click)="copyValue()">Copy</button>
+          <button type="button" data-testid="copyref" (click)="copyRef()">Copy Reference</button>
+          <button type="button" (click)="editing.set('edit')">Edit</button>
+          <button type="button" data-testid="delete" (click)="remove()">
+            {{ confirmDelete() ? "Confirm delete" : "Delete" }}
+          </button>
+        </div>
+        @if (notice()) {
+          <p class="notice">{{ notice() }}</p>
+        }
+      }
+    }
+  </section>
+</div>

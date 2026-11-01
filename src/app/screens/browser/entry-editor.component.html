@@ -1,0 +1,35 @@
+<form (submit)="save($event)">
+  <label>
+    Name
+    <input name="name" autocomplete="off" spellcheck="false" [value]="name()" (input)="setName($event)" />
+  </label>
+  @if (name() && !nameValid()) {
+    <p class="help">Use 1–128 letters, digits, dot, dash or underscore.</p>
+  }
+  @if (renaming()) {
+    <p class="help">References to the old name will stop resolving.</p>
+  }
+  <label>
+    Value
+    <input
+      type="password"
+      name="value"
+      autocomplete="off"
+      spellcheck="false"
+      [placeholder]="entry() ? 'Leave empty to keep the current value' : ''"
+      [value]="value()"
+      (input)="setValue($event)"
+    />
+  </label>
+  <label>
+    Notes
+    <textarea name="notes" rows="3" [value]="notes()" (input)="setNotes($event)"></textarea>
+  </label>
+  @if (error()) {
+    <p role="alert" class="err">{{ error() }}</p>
+  }
+  <div class="row">
+    <button type="submit" [disabled]="!canSave()">Save</button>
+    <button type="button" (click)="cancelled.emit()">Cancel</button>
+  </div>
+</form>

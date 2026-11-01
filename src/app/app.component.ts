@@ -1,11 +1,12 @@
 import { Component, OnDestroy, inject, signal } from "@angular/core";
 import { VaultApi } from "./api/vault-api";
 import { VaultStatus } from "./api/types";
+import { BrowserComponent } from "./screens/browser/browser.component";
 import { UnlockComponent } from "./screens/unlock/unlock.component";
 
 @Component({
   selector: "app-root",
-  imports: [UnlockComponent],
+  imports: [UnlockComponent, BrowserComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
 })
