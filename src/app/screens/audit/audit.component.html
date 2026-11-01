@@ -1,0 +1,22 @@
+<section>
+  <h2>Audit log</h2>
+  <p class="muted">Project, entry names, outcome and time. Never values.</p>
+  @if (error()) {
+    <p role="alert" class="err">{{ error() }}</p>
+  }
+  @for (r of records(); track $index) {
+    <div class="rec">
+      <span class="when">{{ when(r) }}</span>
+      <span class="outcome">{{ outcome(r) }}</span>
+      <span class="proj">{{ r.project_dir }}</span>
+      <span class="entries">
+        {{ r.entries.join(", ") }}
+        @if (r.omitted > 0) {
+          <em>+{{ r.omitted }} more</em>
+        }
+      </span>
+    </div>
+  } @empty {
+    <p class="muted">Nothing has been requested yet.</p>
+  }
+</section>

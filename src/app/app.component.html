@@ -15,10 +15,15 @@
       <div class="tabs" role="tablist">
         <button type="button" role="tab" [attr.aria-selected]="tab() === 'vault'" (click)="tab.set('vault')">Vault</button>
         <button type="button" role="tab" [attr.aria-selected]="tab() === 'approvals'" (click)="tab.set('approvals')">Approvals</button>
+        <button type="button" role="tab" [attr.aria-selected]="tab() === 'audit'" (click)="tab.set('audit')">Audit</button>
+        <button type="button" role="tab" [attr.aria-selected]="tab() === 'settings'" (click)="tab.set('settings')">Settings</button>
+        <button type="button" class="lock" data-testid="lock" (click)="lock()">Lock</button>
       </div>
       @switch (tab()) {
         @case ("vault") { <app-browser /> }
         @case ("approvals") { <app-grants /> }
+        @case ("audit") { <app-audit /> }
+        @case ("settings") { <app-settings /> }
       }
     </main>
   }

@@ -1,0 +1,32 @@
+<section>
+  <h2>Auto-lock</h2>
+  <label>
+    Lock after idle
+    <select name="autolock" [value]="autoLock().toString()" (change)="setAutoLock($event)">
+      @for (c of choices; track c[0]) {
+        <option [value]="c[0]" [selected]="c[0] === autoLock()">{{ c[1] }}</option>
+      }
+    </select>
+  </label>
+
+  <h2>Change master password</h2>
+  <form (submit)="changePassword($event)">
+    <label>Current password
+      <input type="password" name="current" autocomplete="off" spellcheck="false" [value]="current()" (input)="current.set(text($event))" />
+    </label>
+    <label>New password
+      <input type="password" name="next" autocomplete="off" spellcheck="false" [value]="next()" (input)="next.set(text($event))" />
+    </label>
+    <label>Confirm new password
+      <input type="password" name="confirm" autocomplete="off" spellcheck="false" [value]="confirm()" (input)="confirm.set(text($event))" />
+    </label>
+    <p class="muted">At least 8 characters.</p>
+    @if (error()) {
+      <p role="alert" class="err">{{ error() }}</p>
+    }
+    @if (notice()) {
+      <p class="muted">{{ notice() }}</p>
+    }
+    <button type="submit" [disabled]="!canChange()">Change password</button>
+  </form>
+</section>

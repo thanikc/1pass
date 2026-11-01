@@ -11,6 +11,8 @@ async function setup(initial: VaultStatus, ipcError: string | null = null) {
     vaultStatus: vi.fn(async () => status),
     getIpcError: vi.fn(async () => ipcError),
     onApprovalsChanged: () => () => {},
+    noteActivity: vi.fn(async () => {}),
+    lock: vi.fn(async () => {}),
     listPendingApprovals: vi.fn(async () => []),
     listEnvironments: vi.fn(async () => []),
     listEntries: vi.fn(async () => []),
@@ -27,6 +29,7 @@ async function setup(initial: VaultStatus, ipcError: string | null = null) {
   return {
     el,
     fixture,
+    fake,
     flip: async (s: VaultStatus) => {
       status = s;
       changed();
@@ -54,5 +57,30 @@ describe("AppComponent", () => {
   it("shows a banner when the socket could not be bound", async () => {
     const { el } = await setup("locked", "another instance is running");
     expect(el.querySelector(".banner")?.textContent).toContain("cannot connect");
+  });
+
+  it("has the four tabs and a Lock button that calls lock", async () => {
+    const { el, fake } = await setup("unlocked");
+    const tabs = [...el.querySelectorAll("[role=tab]")].map((t) => t.textContent!.trim());
+    expect(tabs).toEqual(["Vault", "Approvals", "Audit", "Settings"]);
+    el.querySelector<HTMLButtonElement>("[data-testid=lock]")!.click();
+    expect(fake.lock).toHaveBeenCalled();
+  });
+
+  it("reports activity at most once per 10 s", async () => {
+    const { fake } = await setup("unlocked");
+    vi.useFakeTimers();
+    try {
+      const fire = () => document.dispatchEvent(new Event("mousedown"));
+      fire();
+      fire();
+      document.dispatchEvent(new Event("keydown"));
+      expect(fake.noteActivity).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(10_000);
+      fire();
+      expect(fake.noteActivity).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
