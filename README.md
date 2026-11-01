@@ -9,7 +9,8 @@ Tauri 2 (Rust) backend, Angular 22 frontend. Linux and macOS are implemented. Th
 ```bash
 npm install
 npm run tauri dev          # desktop app with hot reload
-npm run tauri build        # release build
+npm run tauri build        # release build (app only, no `op`)
+npm run bundle             # installers that include `op`
 cargo test --workspace     # Rust tests
 npm test                   # Angular tests
 ```
@@ -18,11 +19,13 @@ Linux needs the Tauri system libraries: `pkg-config libdbus-1-dev libwebkit2gtk-
 
 ## Install `op`
 
+The installers from `npm run bundle` include `op`. A `.deb` or `.rpm` puts it in `/usr/bin`. On macOS and AppImage, use Settings → Command-line tool to install it (`/usr/local/bin/op` on macOS, `~/.local/bin/op` for AppImage). For source builds:
+
 ```bash
 cargo install --path onepass-cli
 ```
 
-This installs a binary called `op`. **It has the same name as the 1Password CLI.** If both are installed, whichever comes first on `PATH` wins; rename or alias one of them.
+`op` **has the same name as the 1Password CLI.** If both are installed, whichever comes first on `PATH` wins; rename or alias one of them. A `.deb`/`.rpm` install may also fail if a 1Password CLI package already owns `/usr/bin/op`.
 
 ## Use
 

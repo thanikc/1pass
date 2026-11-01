@@ -1,0 +1,7 @@
+{
+  "build": { "beforeBuildCommand": "npm run build && node scripts/build-op.mjs" },
+  "bundle": {
+    "targets": ["deb", "rpm", "appimage", "app", "dmg"],
+    "externalBin": ["binaries/op"]
+  }
+}

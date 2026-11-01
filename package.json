@@ -7,6 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "tauri": "tauri",
+    "bundle": "tauri build --config src-tauri/tauri.bundle.conf.json",
     "test": "ng test --watch=false"
   },
   "private": true,
