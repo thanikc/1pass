@@ -1,10 +1,14 @@
 {
+  "enabledMcpjsonServers": ["context7", "playwright"],
   "hooks": {
     "PreToolUse": [
       {
         "matcher": "Edit|Write",
         "hooks": [
-          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-sensitive-edits.mjs\"" }
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-sensitive-edits.mjs\""
+          }
         ]
       }
     ],
@@ -12,10 +16,18 @@
       {
         "matcher": "Edit|Write",
         "hooks": [
-          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/rust-check.mjs\"" }
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/rust-check.mjs\""
+          }
         ]
       }
     ]
   },
-  "enabledMcpjsonServers": ["context7", "playwright"]
+  "enabledPlugins": {
+    "impeccable@impeccable": true,
+    "superpowers@superpowers-marketplace": true,
+    "claude-security@anthropic-plugin-directory": true,
+    "ponytail@ponytail": true
+  }
 }
