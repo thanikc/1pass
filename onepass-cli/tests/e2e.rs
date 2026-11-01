@@ -76,3 +76,31 @@ fn missing_entry_fails_without_running_child() {
     assert!(o.stdout.is_empty());
     assert!(String::from_utf8_lossy(&o.stderr).contains("entry not found"));
 }
+
+fn run_plain(script: &str) -> std::process::Output {
+    let envf = std::env::temp_dir().join(format!(
+        "op-plain-{}-{:?}.env",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    std::fs::write(&envf, "PLAIN=literal\n").unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_op"))
+        .args(["run", "--env-file"])
+        .arg(&envf)
+        .args(["--", "sh", "-c", script])
+        .output()
+        .unwrap();
+    std::fs::remove_file(envf).unwrap();
+    out
+}
+
+#[test]
+fn exit_code_is_forwarded() {
+    assert_eq!(run_plain("exit 7").status.code(), Some(7));
+}
+
+#[test]
+fn signal_death_is_forwarded() {
+    use std::os::unix::process::ExitStatusExt;
+    assert_eq!(run_plain("kill -TERM $$").status.signal(), Some(15));
+}

@@ -2,7 +2,7 @@ mod dotenv;
 
 use onepass_core::{
     Error,
-    protocol::{PROTOCOL_VERSION, REF_PREFIX, Reference, Request, Response},
+    protocol::{PROTOCOL_VERSION, REF_PREFIX, Reference, Request, Response, endpoint},
 };
 use std::{
     collections::BTreeMap,
@@ -12,7 +12,8 @@ use std::{
 };
 
 const USAGE: &str = "usage: op run [--env-file <path>]... -- <command> [args...]";
-const WAIT: Duration = Duration::from_secs(60);
+// The server owns the real deadlines (unlock 60 s, prompt 120 s, request 180 s); this only backstops a dead app.
+const WAIT: Duration = Duration::from_secs(185);
 const MAX_RESPONSE: u64 = 16 << 20;
 
 fn die(msg: impl std::fmt::Display) -> ! {
@@ -35,15 +36,7 @@ fn exchange<S: Read + Write>(mut s: S, req: &Request) -> Result<BTreeMap<String,
 
 #[cfg(unix)]
 fn connect() -> Result<std::os::unix::net::UnixStream, Error> {
-    // shortcut: unix sockets only, Windows named pipe is still to do.
-    let path = match std::env::var_os("ONEPASS_SOCKET") {
-        Some(p) => p.into(),
-        None => std::path::PathBuf::from(
-            std::env::var_os("XDG_RUNTIME_DIR")
-                .ok_or_else(|| Error::Io("set ONEPASS_SOCKET or XDG_RUNTIME_DIR".into()))?,
-        )
-        .join("onepass.sock"),
-    };
+    let path = endpoint()?;
     let s = std::os::unix::net::UnixStream::connect(&path).map_err(|e| {
         Error::Io(format!(
             "cannot reach the one-pass app at {}: {e}",
@@ -57,6 +50,32 @@ fn connect() -> Result<std::os::unix::net::UnixStream, Error> {
 #[cfg(not(unix))]
 fn connect() -> Result<std::net::TcpStream, Error> {
     Err(Error::Io("this platform is not supported yet".into()))
+}
+
+/// `None` when no variable is a reference. Literal values never enter the request.
+fn build_request(
+    vars: &BTreeMap<String, String>,
+    command: &[String],
+    project_dir: String,
+) -> Result<Option<Request>, Error> {
+    let mut variables = BTreeMap::new();
+    for (name, v) in vars.iter().filter(|(_, v)| v.starts_with(REF_PREFIX)) {
+        Reference::parse(v)?;
+        variables.insert(name.clone(), v.clone());
+    }
+    let mut references: Vec<String> = variables.values().cloned().collect();
+    references.sort();
+    references.dedup();
+    if references.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(Request {
+        version: PROTOCOL_VERSION,
+        project_dir,
+        command: command.to_vec(),
+        references,
+        variables,
+    }))
 }
 
 fn main() {
@@ -92,29 +111,18 @@ fn main() {
         vars.extend(dotenv::parse(&text).unwrap_or_else(|e| die(format!("{f}: {e}"))));
     }
 
-    let mut refs = Vec::new();
     for (name, v) in &vars {
-        if v.starts_with(REF_PREFIX) {
-            Reference::parse(v).unwrap_or_else(|e| die(format!("{name}: {e}")));
-            refs.push(v.clone());
-        } else if dotenv::looks_secret(name, v) {
+        if !v.starts_with(REF_PREFIX) && dotenv::looks_secret(name, v) {
             eprintln!("op: warning: {name} looks like a literal secret, store it in the vault");
         }
     }
-    refs.sort();
-    refs.dedup();
 
-    if !refs.is_empty() {
-        let project_dir = std::env::current_dir()
-            .and_then(|d| d.canonicalize())
-            .unwrap_or_else(|e| die(e));
-        let req = Request {
-            version: PROTOCOL_VERSION,
-            project_dir: project_dir.to_string_lossy().into_owned(),
-            command: command.clone(),
-            references: refs,
-            variables: Default::default(),
-        };
+    let project_dir = std::env::current_dir()
+        .and_then(|d| d.canonicalize())
+        .unwrap_or_else(|e| die(e));
+    let req = build_request(&vars, &command, project_dir.to_string_lossy().into_owned())
+        .unwrap_or_else(|e| die(e));
+    if let Some(req) = req {
         let values = connect()
             .and_then(|s| exchange(s, &req))
             .unwrap_or_else(|e| die(e));
@@ -128,16 +136,22 @@ fn main() {
         }
     }
 
-    let status = Command::new(&command[0])
-        .args(&command[1..])
-        .envs(&vars)
-        .status()
-        .unwrap_or_else(|e| die(format!("{}: {e}", command[0])));
+    let mut child = Command::new(&command[0]);
+    child.args(&command[1..]).envs(&vars);
+    // Unix: replace this process so signals reach the child and its status is ours.
     #[cfg(unix)]
-    if let Some(sig) = std::os::unix::process::ExitStatusExt::signal(&status) {
-        exit(128 + sig); // shortcut: reports the shell-style code instead of re-raising the signal.
+    die(format!(
+        "{}: {}",
+        command[0],
+        std::os::unix::process::CommandExt::exec(&mut child)
+    ));
+    #[cfg(not(unix))]
+    {
+        let status = child
+            .status()
+            .unwrap_or_else(|e| die(format!("{}: {e}", command[0])));
+        exit(status.code().unwrap_or(1));
     }
-    exit(status.code().unwrap_or(1));
 }
 
 #[cfg(all(test, unix))]
@@ -182,5 +196,38 @@ mod tests {
             exchange(serve(Response::Err(Error::Denied)), &req()).unwrap_err(),
             Error::Denied
         );
+    }
+
+    fn vars(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn build_request_maps_variables_and_omits_literals() {
+        let v = vars(&[("A", "op://p/e/n"), ("B", "op://p/e/n"), ("C", "literal")]);
+        let r = build_request(&v, &["x".into()], "/p".into())
+            .unwrap()
+            .unwrap();
+        assert_eq!(r.references, ["op://p/e/n"]);
+        assert_eq!(r.variables.keys().collect::<Vec<_>>(), ["A", "B"]);
+        assert!(!serde_json::to_string(&r).unwrap().contains("literal"));
+    }
+
+    #[test]
+    fn build_request_none_without_references() {
+        assert!(
+            build_request(&vars(&[("C", "x")]), &["x".into()], "/p".into())
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn build_request_rejects_malformed_reference() {
+        let e = build_request(&vars(&[("A", "op://bad")]), &["x".into()], "/p".into());
+        assert!(matches!(e, Err(Error::BadReference(_))));
     }
 }
