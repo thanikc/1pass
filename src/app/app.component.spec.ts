@@ -59,10 +59,10 @@ describe("AppComponent", () => {
     expect(el.querySelector(".banner")?.textContent).toContain("cannot connect");
   });
 
-  it("has the four tabs and a Lock button that calls lock", async () => {
+  it("has the five tabs and a Lock button that calls lock", async () => {
     const { el, fake } = await setup("unlocked");
     const tabs = [...el.querySelectorAll("[role=tab]")].map((t) => t.textContent!.trim());
-    expect(tabs).toEqual(["Vault", "Approvals", "Audit", "Settings"]);
+    expect(tabs).toEqual(["Vault", "Approvals", "Audit", "Settings", "Help"]);
     el.querySelector<HTMLButtonElement>("[data-testid=lock]")!.click();
     expect(fake.lock).toHaveBeenCalled();
   });
@@ -73,8 +73,17 @@ describe("AppComponent", () => {
     tablist.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
     fixture.detectChanges();
     const tabs = [...el.querySelectorAll<HTMLElement>("[role=tab]")];
-    expect(tabs.map((t) => t.getAttribute("aria-selected"))).toEqual(["false", "true", "false", "false"]);
-    expect(tabs.map((t) => t.tabIndex)).toEqual([-1, 0, -1, -1]);
+    expect(tabs.map((t) => t.getAttribute("aria-selected"))).toEqual(["false", "true", "false", "false", "false"]);
+    expect(tabs.map((t) => t.tabIndex)).toEqual([-1, 0, -1, -1, -1]);
+  });
+
+  it("renders CLI usage instructions and an example in the Help tab", async () => {
+    const { el, fixture } = await setup("unlocked");
+    el.querySelector<HTMLButtonElement>("#tab-help")!.click();
+    fixture.detectChanges();
+    const panel = el.querySelector("#panel")!.textContent!;
+    expect(panel).toContain("op://myapp/dev/DATABASE_URL");
+    expect(panel).toContain("op run -- npm start");
   });
 
   it("reports activity at most once per 10 s", async () => {

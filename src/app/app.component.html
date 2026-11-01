@@ -44,6 +44,21 @@
           @case ("approvals") { <app-grants /> }
           @case ("audit") { <app-audit /> }
           @case ("settings") { <app-settings /> }
+          @case ("help") {
+            <section class="help">
+              <h2>Using the CLI</h2>
+              <p>Keep secrets out of <code>.env</code> files by replacing values with <code>op://&lt;project&gt;/&lt;environment&gt;/&lt;entry&gt;</code> references and running your command through <code>op run</code>.</p>
+              <h3>1. Reference secrets in <code>.env</code></h3>
+              <p class="muted">Use Copy Reference in Vault to copy an entry's reference.</p>
+              <pre><code>DATABASE_URL=op://myapp/dev/DATABASE_URL
+LOG_LEVEL=debug</code></pre>
+              <h3>2. Run your command</h3>
+              <pre><code>op run -- npm start
+op run --env-file .env.local -- node server.js</code></pre>
+              <h3>3. Approve in the app</h3>
+              <p>One-pass must be running. When <code>op run</code> connects, approve the prompt to start the command with the resolved secrets in its environment.</p>
+            </section>
+          }
         }
       </div>
       </div>

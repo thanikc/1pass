@@ -21,3 +21,8 @@ svg { width: 1.1rem; height: 1.1rem; flex: none; fill: none; stroke: currentColo
 .tabs button { border-color: transparent; text-align: left; }
 .tabs [aria-selected="true"] { background: var(--active-bg); border-color: var(--accent); }
 .panel { flex: 1; min-width: 0; min-height: 0; overflow: auto; }
+.help { padding: 1rem; display: grid; gap: 0.75rem; align-content: start; max-width: 36rem; }
+.help h2, .help h3, .help p, .help pre { margin: 0; }
+.help h2 { font-size: 1rem; }
+.help h3 { font-size: 0.9rem; margin-top: 0.25rem; }
+.help pre { padding: 0.6rem 0.75rem; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
