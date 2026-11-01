@@ -12,8 +12,10 @@ Password-manager desktop app. Tauri 2 (Rust, edition 2024) backend in `src-tauri
 
 ## Architecture
 
-- Frontend calls Rust via `invoke()` from `@tauri-apps/api/core`.
-- Rust commands are `#[tauri::command]` fns in `src-tauri/src/lib.rs`, registered in `generate_handler![...]`.
+- Frontend calls Rust via `invoke()` from `@tauri-apps/api/core`, only inside `src/app/api/vault-api.ts`.
+- Rust commands are `#[tauri::command]` fns in `src-tauri/src/commands.rs`, registered in `generate_handler![...]` in `lib.rs`.
+- `onepass-core` holds the vault format, data model and wire protocol. `onepass-cli` is the `op` binary and never links crypto.
+- `src-tauri` is Tauri-free logic tested through a fake `Host`: `session` (vault lifecycle), `broker` (request pipeline, grants, limits), `transport` (local socket), `autolock`, `clipboard`. `host` and `commands` are the thin Tauri layer.
 - Window permissions live in `src-tauri/capabilities/default.json`; grant the minimum.
 - Angular uses standalone components and signals (see `src/app/app.component.ts`).
 
@@ -21,7 +23,6 @@ Password-manager desktop app. Tauri 2 (Rust, edition 2024) backend in `src-tauri
 
 - Never log, persist in plaintext, or send secrets over IPC beyond what is needed.
 - Don't hand-edit `package-lock.json`, `Cargo.lock` or `src-tauri/gen/` (a hook blocks it).
-- `tauri.conf.json` has `"csp": null` and `beforeDevCommand`/`beforeBuildCommand` use `pnpm` although the repo has `package-lock.json` (npm). Both are template leftovers to fix.
 - Angular 22, Tauri 2 and TS 6 are newer than much training data: check docs via the context7 MCP server before using unfamiliar APIs.
 
 ## Agent conduct
