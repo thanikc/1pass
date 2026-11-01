@@ -77,6 +77,10 @@ impl Session {
         self.inner.lock().unwrap_or_else(|e| e.into_inner())
     }
 
+    pub fn is_unlocked(&self) -> bool {
+        self.inner().vault.is_some()
+    }
+
     pub fn status(&self) -> VaultStatus {
         if self.inner().vault.is_some() {
             VaultStatus::Unlocked
@@ -263,10 +267,10 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zeroize::Zeroizing;
     use crate::broker::grants::command_name;
     use onepass_core::vault::{AuditOutcome, GrantRecord};
     use std::sync::atomic::{AtomicBool, Ordering};
+    use zeroize::Zeroizing;
 
     const FAST: KdfParams = KdfParams {
         m_cost: 8,
