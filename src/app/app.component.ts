@@ -25,7 +25,13 @@ export class AppComponent implements OnDestroy {
   private unlisten = this.api.onVaultStateChanged(() => void this.refresh());
 
   status = signal<VaultStatus | null>(null);
-  tab = signal<"vault" | "approvals" | "audit" | "settings">("vault");
+  readonly tabs = [
+    ["vault", "Vault"],
+    ["approvals", "Approvals"],
+    ["audit", "Audit"],
+    ["settings", "Settings"],
+  ] as const;
+  tab = signal<(typeof this.tabs)[number][0]>("vault");
   private lastActivity = Number.NEGATIVE_INFINITY;
   ipcError = signal<string | null>(null);
 
@@ -44,6 +50,17 @@ export class AppComponent implements OnDestroy {
     if (now - this.lastActivity < ACTIVITY_THROTTLE_MS) return;
     this.lastActivity = now;
     void this.api.noteActivity();
+  }
+
+  /** Arrow/Home/End move between tabs (ARIA tabs pattern). */
+  tabKey(e: KeyboardEvent): void {
+    const i = this.tabs.findIndex((t) => t[0] === this.tab());
+    const n = this.tabs.length;
+    const next = { ArrowRight: (i + 1) % n, ArrowLeft: (i + n - 1) % n, Home: 0, End: n - 1 }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    this.tab.set(this.tabs[next][0]);
+    document.getElementById("tab-" + this.tabs[next][0])?.focus();
   }
 
   async lock(): Promise<void> {

@@ -67,6 +67,16 @@ describe("AppComponent", () => {
     expect(fake.lock).toHaveBeenCalled();
   });
 
+  it("moves between tabs with arrow keys and keeps one tab stop", async () => {
+    const { el, fixture } = await setup("unlocked");
+    const tablist = el.querySelector("[role=tablist]")!;
+    tablist.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    fixture.detectChanges();
+    const tabs = [...el.querySelectorAll<HTMLElement>("[role=tab]")];
+    expect(tabs.map((t) => t.getAttribute("aria-selected"))).toEqual(["false", "true", "false", "false"]);
+    expect(tabs.map((t) => t.tabIndex)).toEqual([-1, 0, -1, -1]);
+  });
+
   it("reports activity at most once per 10 s", async () => {
     const { fake } = await setup("unlocked");
     vi.useFakeTimers();

@@ -35,7 +35,9 @@ export class ApprovalDialogComponent implements OnInit, OnDestroy {
       });
       const t = setTimeout(() => this.armed.set(true), ARM_DELAY_MS);
       onCleanup(() => clearTimeout(t));
+      const opener = document.activeElement as HTMLElement | null;
       queueMicrotask(() => this.deny()?.nativeElement.focus());
+      onCleanup(() => opener?.isConnected && queueMicrotask(() => opener.focus()));
     });
   }
 
@@ -70,6 +72,21 @@ export class ApprovalDialogComponent implements OnInit, OnDestroy {
       // Unknown id: it was already closed server-side. Just refresh.
     }
     await this.refresh();
+  }
+
+  /** Escape denies; Tab stays inside the dialog so the page behind is unreachable. */
+  keydown(e: KeyboardEvent, dialog: HTMLElement): void {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      void this.deny_();
+    } else if (e.key === "Tab") {
+      const items = [...dialog.querySelectorAll<HTMLElement>("select, button:not(:disabled)")];
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && active === first) (e.preventDefault(), last.focus());
+      else if (!e.shiftKey && active === last) (e.preventDefault(), first.focus());
+    }
   }
 
   select(event: Event): string {

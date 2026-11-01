@@ -1,3 +1,4 @@
+<main>
 <form class="unlock" (submit)="submit($event)">
   <h1>{{ creating() ? "Create your vault" : "Unlock" }}</h1>
   @if (corrupt()) {
@@ -36,3 +37,4 @@
     </button>
   }
 </form>
+</main>

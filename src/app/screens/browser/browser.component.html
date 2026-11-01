@@ -1,5 +1,6 @@
 <div class="browser">
   <nav aria-label="Projects">
+    <h2 class="sr-only">Projects</h2>
     @for (p of projects(); track p[0]) {
       <h3>{{ p[0] }}</h3>
       @for (e of p[1]; track e) {
@@ -38,12 +39,12 @@
           <strong>{{ env[0] }} / {{ env[1] }}</strong>
           <div class="row">
             <button type="button" data-testid="rename-env" (click)="startRename()">Rename</button>
-            <button type="button" data-testid="delete-env" (click)="removeEnv()">
+            <button type="button" class="danger" [class.confirming]="confirmDeleteEnv()" data-testid="delete-env" (click)="removeEnv()" (blur)="confirmDeleteEnv.set(false)">
               {{ confirmDeleteEnv() ? "Confirm delete" : "Delete" }}
             </button>
           </div>
           @if (confirmDeleteEnv()) {
-            <p class="notice">Deletes the environment and all its entries.</p>
+            <p class="notice" role="status">Deletes the environment and all its entries.</p>
           }
         </div>
       }
@@ -76,12 +77,14 @@
           <button type="button" data-testid="copy" (click)="copyValue()">Copy</button>
           <button type="button" data-testid="copyref" (click)="copyRef()">Copy Reference</button>
           <button type="button" (click)="editing.set('edit')">Edit</button>
-          <button type="button" data-testid="delete" (click)="remove()">
+          <button type="button" class="danger" [class.confirming]="confirmDelete()" data-testid="delete" (click)="remove()" (blur)="confirmDelete.set(false)">
             {{ confirmDelete() ? "Confirm delete" : "Delete" }}
           </button>
         </div>
-        @if (notice()) {
-          <p class="notice">{{ notice() }}</p>
+        @if (confirmDelete()) {
+          <p class="notice" role="status">Deletes this entry permanently.</p>
+        } @else if (notice()) {
+          <p class="notice" role="status">{{ notice() }}</p>
         }
       }
     }

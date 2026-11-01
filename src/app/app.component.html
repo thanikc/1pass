@@ -12,19 +12,31 @@
   }
   @case ("unlocked") {
     <main class="shell">
-      <div class="tabs" role="tablist">
-        <button type="button" role="tab" [attr.aria-selected]="tab() === 'vault'" (click)="tab.set('vault')">Vault</button>
-        <button type="button" role="tab" [attr.aria-selected]="tab() === 'approvals'" (click)="tab.set('approvals')">Approvals</button>
-        <button type="button" role="tab" [attr.aria-selected]="tab() === 'audit'" (click)="tab.set('audit')">Audit</button>
-        <button type="button" role="tab" [attr.aria-selected]="tab() === 'settings'" (click)="tab.set('settings')">Settings</button>
+      <h1 class="sr-only">one-pass</h1>
+      <div class="bar">
+        <div class="tabs" role="tablist" aria-label="Sections" (keydown)="tabKey($event)">
+          @for (t of tabs; track t[0]) {
+            <button
+              type="button"
+              role="tab"
+              [id]="'tab-' + t[0]"
+              aria-controls="panel"
+              [attr.aria-selected]="tab() === t[0]"
+              [tabindex]="tab() === t[0] ? 0 : -1"
+              (click)="tab.set(t[0])"
+            >{{ t[1] }}</button>
+          }
+        </div>
         <button type="button" class="lock" data-testid="lock" (click)="lock()">Lock</button>
       </div>
-      @switch (tab()) {
-        @case ("vault") { <app-browser /> }
-        @case ("approvals") { <app-grants /> }
-        @case ("audit") { <app-audit /> }
-        @case ("settings") { <app-settings /> }
-      }
+      <div class="panel" id="panel" role="tabpanel" [attr.aria-labelledby]="'tab-' + tab()">
+        @switch (tab()) {
+          @case ("vault") { <app-browser /> }
+          @case ("approvals") { <app-grants /> }
+          @case ("audit") { <app-audit /> }
+          @case ("settings") { <app-settings /> }
+        }
+      </div>
     </main>
   }
 }

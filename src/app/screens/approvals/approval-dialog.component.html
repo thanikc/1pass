@@ -1,6 +1,6 @@
 @if (current(); as c) {
   <div class="backdrop">
-    <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="ad-title">
+    <div class="dialog" #dialog role="alertdialog" aria-modal="true" aria-labelledby="ad-title" (keydown)="keydown($event, dialog)">
       <h2 id="ad-title">Allow <code>{{ c.commandName }}</code> to read secrets?</h2>
       <dl>
         <dt>Project</dt>

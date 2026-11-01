@@ -4,8 +4,10 @@
   background: var(--danger-bg);
   color: var(--danger);
 }
-.shell { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
-.tabs { display: flex; gap: 0.25rem; padding: 0.5rem; border-bottom: 1px solid var(--line); }
+.shell { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100dvh; }
+.bar { display: flex; gap: 0.25rem; padding: 0.5rem; border-bottom: 1px solid var(--line); }
+.tabs { display: flex; gap: 0.25rem; }
 .tabs button { border-color: transparent; }
-.tabs [aria-selected="true"] { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.tabs [aria-selected="true"] { background: var(--active-bg); }
 .lock { margin-left: auto; }
+.panel { min-height: 0; overflow: auto; }

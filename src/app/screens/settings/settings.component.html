@@ -17,7 +17,7 @@
       <p role="alert" class="err">{{ cliError() }}</p>
     }
     @if (cliNotice()) {
-      <p class="muted">{{ cliNotice() }}</p>
+      <p class="muted" role="status">{{ cliNotice() }}</p>
     }
   }
 
@@ -37,7 +37,7 @@
       <p role="alert" class="err">{{ error() }}</p>
     }
     @if (notice()) {
-      <p class="muted">{{ notice() }}</p>
+      <p class="muted" role="status">{{ notice() }}</p>
     }
     <button type="submit" [disabled]="!canChange()">Change password</button>
   </form>
