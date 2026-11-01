@@ -6,10 +6,11 @@ The app and the `op` CLI are useless apart, but today `op` is installed separate
 the user both, with `op` on `PATH`.
 
 ## Goals
-- Installing the app on Linux, macOS or Windows also installs `op`.
+- Installing the app on Linux or macOS also installs `op`.
 - `op` is on `PATH` after install wherever the installer can arrange it.
 
 ## Non-goals
+- Windows, until its transport exists (see Amendments).
 - A release/CI workflow, signing, or auto-update (none exist yet).
 - A standalone `install.sh`; the installers are the install path.
 - Changing `op` or the wire protocol.
@@ -41,11 +42,29 @@ the user both, with `op` on `PATH`.
 5. **Docs:** update README "Install `op`" to describe the bundled install.
 
 ## Decisions
-- Name clash with the 1Password CLI: no package conflict declared (matches README). *Assistant's call.*
+- Name clash with the 1Password CLI: no package conflict declared, and `op` keeps its name. Confirmed with user, including that a `.deb`/`.rpm` install may fail next to a 1Password CLI package that owns `/usr/bin/op`: one-pass is meant as a free alternative to 1Password.
 - Symlink locations as above: confirmed with user.
+
+## Amendments from planning
+These override the Design section above where they differ.
+- **Windows is dropped for now (user decision), so Design item 3 is out.** `op` on Windows
+  can't reach the app: `connect()` in `onepass-cli` and `start_ipc` in `src-tauri` both
+  return "not supported yet". Add the `PATH` hook when the Windows transport is written.
+- **`externalBin` moves to `src-tauri/tauri.bundle.conf.json`, used by a new `npm run bundle`.**
+  `tauri-build` copies external binaries on every cargo build (`copy_binaries` in
+  tauri-build 2.7.4), so listing it in `tauri.conf.json` would tie `cargo check`,
+  `cargo test` and `tauri dev` to a prebuilt `op`.
+- **AppImage copies `op` instead of symlinking.** The AppImage mount path changes on every
+  run, so a symlink into it would dangle.
+- **An existing symlink is replaced only if it is dangling.** Replacing any symlink would
+  clobber a Homebrew-installed 1Password `op` at `/usr/local/bin/op`.
+- **The action refuses to run from a mounted `.dmg` or a translocated app.** A link to
+  either path would break.
+- **No capability change.** `build.rs` declares no app manifest, so app commands aren't
+  gated by capabilities.
+- **Installers target `deb`, `rpm`, `appimage`, `app`, `dmg`.**
 
 ## Left to the builder
 - Exact build script (shell vs. cargo `build.rs`), cross-platform target-triple detection.
 - Exact UI placement of the install action.
-- Verify the NSIS PATH edit handles per-user vs per-machine installs.
-- Linux/macOS/Windows testing is manual (no CI); extend the manual test checklist.
+- Linux/macOS testing is manual (no CI); extend the manual test checklist.
