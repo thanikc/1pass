@@ -1,0 +1,15 @@
+[package]
+name = "onepass-cli"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "op"
+path = "src/main.rs"
+
+[dependencies]
+onepass-core = { path = "../onepass-core", default-features = false }
+serde_json = "1"
+
+[dev-dependencies]
+onepass-core = { path = "../onepass-core" }

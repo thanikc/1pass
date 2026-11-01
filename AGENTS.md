@@ -23,3 +23,8 @@ Password-manager desktop app. Tauri 2 (Rust, edition 2024) backend in `src-tauri
 - Don't hand-edit `package-lock.json`, `Cargo.lock` or `src-tauri/gen/` (a hook blocks it).
 - `tauri.conf.json` has `"csp": null` and `beforeDevCommand`/`beforeBuildCommand` use `pnpm` although the repo has `package-lock.json` (npm). Both are template leftovers to fix.
 - Angular 22, Tauri 2 and TS 6 are newer than much training data: check docs via the context7 MCP server before using unfamiliar APIs.
+
+## Agent conduct
+
+- If something can't run because of permission restrictions, a missing password, or a missing tool, don't work around it. Stop and ask.
+- For ambiguous decisions, never assume. Confirm with the user first.
