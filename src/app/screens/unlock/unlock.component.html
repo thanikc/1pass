@@ -1,0 +1,38 @@
+<form class="unlock" (submit)="submit($event)">
+  <h1>{{ creating() ? "Create your vault" : "Unlock" }}</h1>
+  @if (corrupt()) {
+    <p role="alert">{{ error() }}</p>
+  } @else {
+    <label>
+      Master password
+      <input
+        type="password"
+        name="password"
+        autocomplete="off"
+        spellcheck="false"
+        [value]="password()"
+        (input)="password.set(value($event))"
+      />
+    </label>
+    @if (creating()) {
+      <label>
+        Confirm password
+        <input
+          type="password"
+          name="confirm"
+          autocomplete="off"
+          spellcheck="false"
+          [value]="confirm()"
+          (input)="confirm.set(value($event))"
+        />
+      </label>
+      <p class="hint">At least 8 characters. There is no way to recover it.</p>
+    }
+    @if (error()) {
+      <p role="alert">{{ error() }}</p>
+    }
+    <button type="submit" [disabled]="!valid() || busy()">
+      {{ creating() ? "Create vault" : "Unlock" }}
+    </button>
+  }
+</form>

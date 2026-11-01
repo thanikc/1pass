@@ -1,22 +1,31 @@
-import { Component, signal } from "@angular/core";
-import { RouterOutlet } from "@angular/router";
-import { invoke } from "@tauri-apps/api/core";
+import { Component, OnDestroy, inject, signal } from "@angular/core";
+import { VaultApi } from "./api/vault-api";
+import { VaultStatus } from "./api/types";
+import { UnlockComponent } from "./screens/unlock/unlock.component";
 
 @Component({
   selector: "app-root",
-  imports: [RouterOutlet],
+  imports: [UnlockComponent],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
 })
-export class AppComponent {
-  greetingMessage = signal("");
+export class AppComponent implements OnDestroy {
+  private api = inject(VaultApi);
+  private unlisten = this.api.onVaultStateChanged(() => void this.refresh());
 
-  greet(event: SubmitEvent, name: string): void {
-    event.preventDefault();
+  status = signal<VaultStatus | null>(null);
+  ipcError = signal<string | null>(null);
 
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    invoke<string>("greet", { name }).then((text) => {
-      this.greetingMessage.set(text);
-    });
+  constructor() {
+    void this.refresh();
+    void this.api.getIpcError().then((e) => this.ipcError.set(e));
+  }
+
+  async refresh(): Promise<void> {
+    this.status.set(await this.api.vaultStatus());
+  }
+
+  ngOnDestroy(): void {
+    this.unlisten();
   }
 }
