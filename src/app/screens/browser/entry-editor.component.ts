@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, output, signal } from "@angular/core";
+import { Component, OnDestroy, computed, inject, input, output, signal } from "@angular/core";
 import { errorMessage } from "../../api/errors";
 import { EntryMeta } from "../../api/types";
 import { VaultApi } from "../../api/vault-api";
@@ -10,7 +10,7 @@ const NAME_RE = /^[A-Za-z0-9._-]{1,128}$/;
   templateUrl: "./entry-editor.component.html",
   styleUrl: "./entry-editor.component.css",
 })
-export class EntryEditorComponent {
+export class EntryEditorComponent implements OnDestroy {
   private api = inject(VaultApi);
 
   project = input.required<string>();
@@ -30,6 +30,10 @@ export class EntryEditorComponent {
   nameValid = computed(() => NAME_RE.test(this.name()));
   renaming = computed(() => !!this.entry() && this.name() !== this.entry()!.name);
   canSave = computed(() => this.nameValid() && (!!this.entry() || this.value().length > 0));
+
+  ngOnDestroy(): void {
+    this.value.set("");
+  }
 
   async save(event: Event): Promise<void> {
     event.preventDefault();
