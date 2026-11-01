@@ -9,6 +9,18 @@
     </select>
   </label>
 
+  @if (cliTarget()) {
+    <h2>Command-line tool</h2>
+    <p class="muted">Installs <code>op</code> to {{ cliTarget() }}.</p>
+    <button type="button" name="install-cli" (click)="installCli()">Install command-line tool</button>
+    @if (cliError()) {
+      <p role="alert" class="err">{{ cliError() }}</p>
+    }
+    @if (cliNotice()) {
+      <p class="muted">{{ cliNotice() }}</p>
+    }
+  }
+
   <h2>Change master password</h2>
   <form (submit)="changePassword($event)">
     <label>Current password

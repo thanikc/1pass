@@ -19,6 +19,9 @@ export class SettingsComponent implements OnInit {
   confirm = signal("");
   error = signal("");
   notice = signal("");
+  cliTarget = signal<string | null>(null);
+  cliError = signal("");
+  cliNotice = signal("");
 
   canChange = computed(() => this.current().length > 0 && this.next().length >= MIN_LENGTH && this.next() === this.confirm());
 
@@ -27,6 +30,22 @@ export class SettingsComponent implements OnInit {
       this.autoLock.set((await this.api.getSettings()).auto_lock_minutes);
     } catch (e) {
       this.error.set(errorMessage(e));
+    }
+    try {
+      this.cliTarget.set(await this.api.cliInstallTarget());
+    } catch (e) {
+      this.cliError.set(errorMessage(e));
+    }
+  }
+
+  async installCli(): Promise<void> {
+    this.cliError.set("");
+    this.cliNotice.set("");
+    try {
+      const path = await this.api.installCli();
+      this.cliNotice.set(`Installed to ${path}. Open a new terminal to use it.`);
+    } catch (e) {
+      this.cliError.set(errorMessage(e));
     }
   }
 

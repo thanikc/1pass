@@ -3,8 +3,14 @@ import { describe, expect, it, vi } from "vitest";
 import { VaultApi } from "../../api/vault-api";
 import { SettingsComponent } from "./settings.component";
 
-async function setup(changePassword = vi.fn().mockResolvedValue(undefined)) {
-  const fake = { getSettings: vi.fn().mockResolvedValue({ auto_lock_minutes: 15 }), setAutoLock: vi.fn().mockResolvedValue(undefined), changePassword };
+async function setup(changePassword = vi.fn().mockResolvedValue(undefined), cli: { target?: string | null; install?: ReturnType<typeof vi.fn> } = {}) {
+  const fake = {
+    getSettings: vi.fn().mockResolvedValue({ auto_lock_minutes: 15 }),
+    setAutoLock: vi.fn().mockResolvedValue(undefined),
+    changePassword,
+    cliInstallTarget: vi.fn().mockResolvedValue(cli.target ?? null),
+    installCli: cli.install ?? vi.fn().mockResolvedValue("/usr/local/bin/op"),
+  };
   TestBed.configureTestingModule({ providers: [{ provide: VaultApi, useValue: fake }] });
   const f = TestBed.createComponent(SettingsComponent);
   const el: HTMLElement = f.nativeElement;
@@ -69,6 +75,28 @@ describe("SettingsComponent", () => {
     type("confirm", "longenough1");
     await submit();
     expect(fake.changePassword).toHaveBeenCalledWith("old", "longenough1");
+    expect(q("current").value).toBe("");
+  });
+
+  it("hides the CLI action when the installer already put op on PATH", async () => {
+    const { q } = await setup();
+    expect(q("install-cli")).toBeNull();
+  });
+
+  it("shows the target, installs and reports the path", async () => {
+    const { q, el, fake, tick } = await setup(undefined, { target: "/usr/local/bin/op" });
+    expect(el.textContent).toContain("/usr/local/bin/op");
+    q("install-cli").click();
+    await tick();
+    expect(fake.installCli).toHaveBeenCalledTimes(1);
+    expect(el.textContent).toContain("Installed to /usr/local/bin/op");
+  });
+
+  it("shows why the install was refused", async () => {
+    const { q, el, tick } = await setup(undefined, { target: "/usr/local/bin/op", install: vi.fn().mockRejectedValue({ InvalidInput: "already exists" }) });
+    q("install-cli").click();
+    await tick();
+    expect(el.querySelector("[role=alert]")!.textContent).toContain("already exists");
     expect(q("current").value).toBe("");
   });
 });
