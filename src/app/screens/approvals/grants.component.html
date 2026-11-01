@@ -1,0 +1,31 @@
+<section>
+  <h2>Active approvals</h2>
+  @if (error()) {
+    <p role="alert" class="err">{{ error() }}</p>
+  }
+  @for (g of grants(); track g.hash) {
+    <div class="grant">
+      <div>
+        <strong>{{ g.commandName }}</strong> in {{ g.projectDir }}
+        <div class="muted">{{ g.references.join(", ") }}</div>
+        <div class="muted">{{ expiry(g) }}</div>
+      </div>
+      <button type="button" data-testid="revoke" (click)="revoke(g.hash)">Revoke</button>
+    </div>
+  } @empty {
+    <p class="muted">No active approvals.</p>
+  }
+
+  <h2>Approval mode per project</h2>
+  <p class="muted">Changing a project's mode revokes its approvals.</p>
+  @for (m of modes(); track m[0]) {
+    <label class="mode">
+      <span>{{ m[0] }}</span>
+      <select [value]="m[1]" (change)="setMode(m[0], $event)">
+        <option value="per_run">Ask every run</option>
+        <option value="time_boxed">Time-boxed</option>
+        <option value="remember">Remember</option>
+      </select>
+    </label>
+  }
+</section>

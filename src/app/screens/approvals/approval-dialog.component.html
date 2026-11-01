@@ -1,0 +1,47 @@
+@if (current(); as c) {
+  <div class="backdrop">
+    <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="ad-title">
+      <h2 id="ad-title">Allow <code>{{ c.commandName }}</code> to read secrets?</h2>
+      <dl>
+        <dt>Project</dt>
+        <dd>{{ c.projectDir }}</dd>
+        <dt>Command</dt>
+        <dd data-testid="command">{{ c.command.join(" ") }}</dd>
+        <dt>Caller</dt>
+        <dd>PID {{ c.peerPid ?? "unknown" }} · {{ c.peerExe ?? "unknown executable" }}</dd>
+        <dt>Variables</dt>
+        <dd>
+          @for (v of c.variables; track v[0]) {
+            <div>{{ v[0] }} ← {{ v[1] }}</div>
+          }
+        </dd>
+      </dl>
+      <p class="note">Values are never shown here.</p>
+      <label>
+        Approval
+        <select name="mode" [value]="mode()" (change)="mode.set($any(select($event)))">
+          <option value="per_run">Ask every run</option>
+          <option value="time_boxed">Time-boxed</option>
+          <option value="remember">Remember</option>
+        </select>
+      </label>
+      @if (mode() === "time_boxed") {
+        <label>
+          For
+          <select name="duration" [value]="duration()" (change)="duration.set($any(select($event)))">
+            <option value="min15">15 minutes</option>
+            <option value="hour1">1 hour</option>
+            <option value="until_lock">Until lock</option>
+          </select>
+        </label>
+      }
+      @if (waiting() > 0) {
+        <p class="note">{{ waiting() }} more waiting</p>
+      }
+      <div class="row">
+        <button type="button" #deny data-testid="deny" (click)="deny_()">Deny</button>
+        <button type="button" class="primary" data-testid="allow" [disabled]="!armed()" (click)="allow()">Allow</button>
+      </div>
+    </div>
+  </div>
+}

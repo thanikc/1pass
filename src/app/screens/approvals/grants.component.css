@@ -1,0 +1,5 @@
+section { padding: 1rem; display: grid; gap: 0.75rem; align-content: start; }
+h2 { margin: 0; font-size: 1rem; }
+.grant, .mode { display: flex; justify-content: space-between; gap: 1rem; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 0.5rem; }
+.muted { color: var(--muted); font-size: 0.85rem; margin: 0; }
+.err { color: var(--danger); margin: 0; }

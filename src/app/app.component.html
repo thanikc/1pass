@@ -11,6 +11,17 @@
     <app-unlock status="locked" (unlocked)="refresh()" />
   }
   @case ("unlocked") {
-    <main class="shell"><app-browser /></main>
+    <main class="shell">
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" [attr.aria-selected]="tab() === 'vault'" (click)="tab.set('vault')">Vault</button>
+        <button type="button" role="tab" [attr.aria-selected]="tab() === 'approvals'" (click)="tab.set('approvals')">Approvals</button>
+      </div>
+      @switch (tab()) {
+        @case ("vault") { <app-browser /> }
+        @case ("approvals") { <app-grants /> }
+      }
+    </main>
   }
 }
+
+<app-approval-dialog />

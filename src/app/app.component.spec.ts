@@ -10,6 +10,10 @@ async function setup(initial: VaultStatus, ipcError: string | null = null) {
   const fake = {
     vaultStatus: vi.fn(async () => status),
     getIpcError: vi.fn(async () => ipcError),
+    onApprovalsChanged: () => () => {},
+    listPendingApprovals: vi.fn(async () => []),
+    listEnvironments: vi.fn(async () => []),
+    listEntries: vi.fn(async () => []),
     onVaultStateChanged: (cb: () => void) => {
       changed = cb;
       return () => {};
