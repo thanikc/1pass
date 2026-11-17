@@ -92,6 +92,15 @@ describe("EntryEditorComponent", () => {
     expect(i.classList).toContain("secret");
   });
 
+  it("blocks copy and cut of the masked value", () => {
+    const { q } = setup();
+    for (const type of ["copy", "cut"]) {
+      const ev = new Event(type, { cancelable: true, bubbles: true });
+      q("value").dispatchEvent(ev);
+      expect(ev.defaultPrevented).toBe(true);
+    }
+  });
+
   it("keeps inner line breaks", async () => {
     const { type, save, saveEntry } = setup();
     type("name", "K");

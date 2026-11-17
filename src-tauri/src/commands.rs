@@ -32,8 +32,9 @@ pub struct AppState {
     pub clip: Mutex<ClipboardGuard>,
     pub ipc_error: Mutex<Option<String>>,
     pub shutdown: Mutex<Option<Box<dyn FnOnce() + Send>>>,
-    /// The `.env` file picked in the native dialog, remembered until its import succeeds.
-    pub env_file: Mutex<Option<PathBuf>>,
+    /// The `.env` file picked in the native dialog with the project and environment it was
+    /// picked for, remembered until its import succeeds or the vault locks.
+    pub env_file: Mutex<Option<(PathBuf, String, String)>>,
 }
 
 fn guard<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -71,6 +72,7 @@ impl AppState {
     /// Lock and drop our clipboard value. Used by the Lock button and the idle timer.
     pub fn lock_now(&self) {
         self.session.lock();
+        *guard(&self.env_file) = None;
         guard(&self.clip).clear_now(&AppClipboard(&self.app));
         self.changed();
     }
@@ -240,14 +242,19 @@ pub fn copy_reference(
 #[tauri::command]
 pub async fn pick_env_file(
     app: AppHandle,
+    window: tauri::WebviewWindow,
     s: State<'_, AppState>,
     project: String,
     environment: String,
 ) -> R<Option<Vec<Candidate>>> {
     s.touch();
+    if !s.session.is_unlocked() {
+        return Err(Error::VaultLocked);
+    }
     let Some(picked) = app
         .dialog()
         .file()
+        .set_parent(&window)
         .add_filter("Environment files", &["env"])
         .add_filter("All files", &["*"])
         .blocking_pick_file()
@@ -261,14 +268,19 @@ pub async fn pick_env_file(
     let found = s
         .session
         .read(|v| env_import::candidates(&text, &v.body, &project, &environment))??;
-    *guard(&s.env_file) = Some(path);
+    *guard(&s.env_file) = Some((path, project, environment));
     Ok(Some(found))
 }
 
-fn picked_env_text(s: &AppState) -> R<Zeroizing<String>> {
-    let path = guard(&s.env_file)
+fn picked_env_text(s: &AppState, project: &str, environment: &str) -> R<Zeroizing<String>> {
+    let (path, p, e) = guard(&s.env_file)
         .clone()
         .ok_or_else(|| Error::InvalidInput("no .env file chosen".into()))?;
+    if p != project || e != environment {
+        return Err(Error::InvalidInput(
+            "the file was chosen for another environment".into(),
+        ));
+    }
     env_import::read_env_file(&path)
 }
 
@@ -282,7 +294,7 @@ pub fn import_env(
     names: Vec<String>,
 ) -> R<()> {
     s.touch();
-    let text = picked_env_text(&s)?;
+    let text = picked_env_text(&s, &project, &environment)?;
     s.session
         .mutate(|b| env_import::import(b, &project, &environment, &text, &names))?;
     *guard(&s.env_file) = None;
@@ -298,7 +310,11 @@ pub fn copy_env_references(
     names: Vec<String>,
 ) -> R<()> {
     s.touch();
-    AppClipboard(&s.app).write_plain(&env_import::reference_lines(&project, &environment, &names))
+    AppClipboard(&s.app).write_plain(&env_import::reference_lines(
+        &project,
+        &environment,
+        &names,
+    )?)
 }
 
 #[tauri::command(async)]

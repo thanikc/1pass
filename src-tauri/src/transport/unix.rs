@@ -64,16 +64,16 @@ mod tests {
         assert_eq!(n.load(SeqCst), 0);
     }
 
-    fn scratch(name: &str) -> PathBuf {
+    fn scratch(name: &str) -> (TempDir, PathBuf) {
         let d = std::env::temp_dir().join(format!("onepass-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir(&d).unwrap();
-        d
+        (TempDir(d.clone()), d)
     }
 
     #[test]
     fn bind_does_not_change_umask_for_other_threads() {
-        let dir = scratch("umask");
+        let (_guard, dir) = scratch("umask");
         let (stop, made) = (Arc::new(AtomicBool::new(false)), dir.join("made"));
         std::fs::create_dir(&made).unwrap();
         let (stop2, made2) = (stop.clone(), made.clone());
@@ -94,12 +94,11 @@ mod tests {
             let d = e.unwrap().path();
             std::fs::write(d.join("f"), b"x").unwrap_or_else(|e| panic!("{d:?} unusable: {e}"));
         }
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn nothing_is_left_beside_the_endpoint() {
-        let dir = scratch("clean");
+        let (_guard, dir) = scratch("clean");
         let ep = dir.join("ep.sock");
         let _l = bind(&ep).unwrap();
         let names: Vec<_> = std::fs::read_dir(&dir)
@@ -107,17 +106,17 @@ mod tests {
             .map(|e| e.unwrap().file_name())
             .collect();
         assert_eq!(names, ["ep.sock"]);
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
-    fn leftover_temp_dir_makes_bind_fail() {
-        let dir = scratch("leftover");
+    fn leftover_staging_dir_does_not_block_bind() {
+        let (_guard, dir) = scratch("leftover");
         let ep = dir.join("ep.sock");
-        std::fs::create_dir(temp_dir_for(&ep)).unwrap();
-        assert!(bind(&ep).is_err());
-        assert!(!ep.exists());
-        std::fs::remove_dir_all(&dir).unwrap();
+        std::fs::create_dir(dir.join(".onepass-old.t")).unwrap();
+        std::fs::write(dir.join(".onepass-old.t").join("s"), b"x").unwrap();
+        let _l = bind(&ep).unwrap();
+        assert!(ep.exists());
+        assert!(dir.join(".onepass-old.t").join("s").exists());
     }
 }
 
@@ -168,9 +167,13 @@ pub fn serve_with(
 }
 
 /// Private staging directory next to the endpoint (same filesystem, so the rename is atomic).
+/// The name is unique per attempt, so a leftover from a crash never blocks a later bind, and
+/// short, to keep the socket path within `sun_path`.
 fn temp_dir_for(path: &std::path::Path) -> PathBuf {
-    let name = path.file_name().unwrap_or_default().to_string_lossy();
-    path.with_file_name(format!(".{name}.tmp"))
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos());
+    path.with_file_name(format!(".{}-{nanos:x}.t", std::process::id()))
 }
 
 /// Removes the staging directory (and anything in it) on every exit path.
@@ -187,7 +190,10 @@ fn bind(path: &std::path::Path) -> Result<UnixListener, Error> {
     // without touching the process-wide umask. create fails if the name already exists:
     // a leftover or planted directory is not trusted.
     let dir = temp_dir_for(path);
-    std::fs::DirBuilder::new().mode(0o700).create(&dir)?;
+    std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&dir)
+        .map_err(|e| Error::Io(format!("cannot create {}: {e}", dir.display())))?;
     let _guard = TempDir(dir.clone());
     let staged = dir.join("s");
     let listener = UnixListener::bind(&staged)?;

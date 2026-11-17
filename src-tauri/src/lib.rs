@@ -180,13 +180,19 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
-            if let RunEvent::Exit = event
-                && let Some(s) = app.try_state::<AppState>()
-            {
-                guard(&s.clip).clear_now(&AppClipboard(app));
-                if let Some(stop) = guard(&s.shutdown).take() {
-                    stop();
+            match event {
+                RunEvent::Exit => {
+                    if let Some(s) = app.try_state::<AppState>() {
+                        guard(&s.clip).clear_now(&AppClipboard(app));
+                        if let Some(stop) = guard(&s.shutdown).take() {
+                            stop();
+                        }
+                    }
                 }
+                // Dock icon clicked while the window is hidden in the tray.
+                #[cfg(target_os = "macos")]
+                RunEvent::Reopen { .. } => host::raise(app),
+                _ => {}
             }
         });
 }

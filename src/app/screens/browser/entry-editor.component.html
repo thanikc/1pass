@@ -22,6 +22,8 @@
       [placeholder]="entry() ? 'Leave empty to keep the current value' : ''"
       [value]="value()"
       (input)="setValue($event)"
+      (copy)="$event.preventDefault()"
+      (cut)="$event.preventDefault()"
     ></textarea>
   </label>
   <button data-icon="plus" data-generate type="button" (click)="generate()">Generate</button>

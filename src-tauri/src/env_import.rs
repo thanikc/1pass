@@ -133,14 +133,28 @@ pub fn import(
 }
 
 /// `NAME=op://project/environment/NAME` lines for the user to paste, sorted by name.
-pub fn reference_lines(project: &str, environment: &str, names: &[String]) -> String {
+/// Every part is validated, so a name cannot smuggle a newline or `=` into the lines.
+pub fn reference_lines(
+    project: &str,
+    environment: &str,
+    names: &[String],
+) -> Result<String, Error> {
+    if names.is_empty() {
+        return Err(Error::InvalidInput("no variables chosen".into()));
+    }
+    for part in [project, environment] {
+        validate_name(part)?;
+    }
+    for n in names {
+        validate_name(n)?;
+    }
     let mut sorted: Vec<&String> = names.iter().collect();
     sorted.sort();
-    sorted
+    Ok(sorted
         .iter()
         .map(|n| format!("{n}={REF_PREFIX}{project}/{environment}/{n}"))
         .collect::<Vec<_>>()
-        .join("\n")
+        .join("\n"))
 }
 
 /// Largest `.env` file accepted.
@@ -152,20 +166,26 @@ pub fn read_env_file(path: &Path) -> Result<Zeroizing<String>, Error> {
     let io = |e: std::io::Error| Error::Io(e.to_string());
     let too_big = || Error::InvalidInput("file is larger than 1 MiB".into());
     let file = std::fs::File::open(path).map_err(io)?;
-    if file.metadata().map_err(io)?.len() > MAX_FILE_BYTES {
+    let len = file.metadata().map_err(io)?.len();
+    if len > MAX_FILE_BYTES {
         return Err(too_big());
     }
-    // Bounded read, so a file that grows after the check cannot get past the limit.
-    let mut bytes = Zeroizing::new(Vec::new());
+    // Bounded read, so a file that grows after the check cannot get past the limit. Sized up
+    // front so the read does not reallocate (and leave unwiped copies) for a stable file.
+    let mut bytes = Zeroizing::new(Vec::with_capacity(len as usize + 1));
     file.take(MAX_FILE_BYTES + 1)
         .read_to_end(&mut bytes)
         .map_err(io)?;
     if bytes.len() as u64 > MAX_FILE_BYTES {
         return Err(too_big());
     }
-    let text = std::str::from_utf8(&bytes)
-        .map_err(|_| Error::InvalidInput("file is not valid UTF-8 text".into()))?;
-    Ok(Zeroizing::new(text.to_owned()))
+    // Moves the buffer into the String, so no unwiped copy is made.
+    String::from_utf8(std::mem::take(&mut *bytes))
+        .map(Zeroizing::new)
+        .map_err(|e| {
+            drop(Zeroizing::new(e.into_bytes()));
+            Error::InvalidInput("file is not valid UTF-8 text".into())
+        })
 }
 
 #[cfg(test)]
@@ -292,9 +312,19 @@ mod tests {
     #[test]
     fn reference_lines_are_sorted_by_name() {
         assert_eq!(
-            reference_lines("myapp", "dev", &names(&["STRIPE_SECRET", "LOG_LEVEL"])),
+            reference_lines("myapp", "dev", &names(&["STRIPE_SECRET", "LOG_LEVEL"])).unwrap(),
             "LOG_LEVEL=op://myapp/dev/LOG_LEVEL\nSTRIPE_SECRET=op://myapp/dev/STRIPE_SECRET"
         );
+    }
+
+    #[test]
+    fn reference_lines_reject_bad_input() {
+        for bad in ["A\nB=1", "A=B", ""] {
+            assert!(reference_lines("myapp", "dev", &names(&[bad])).is_err());
+        }
+        assert!(reference_lines("my\napp", "dev", &names(&["A"])).is_err());
+        assert!(reference_lines("myapp", "d=ev", &names(&["A"])).is_err());
+        assert!(reference_lines("myapp", "dev", &[]).is_err());
     }
 
     #[test]
