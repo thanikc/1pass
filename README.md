@@ -19,7 +19,7 @@ Download the installer for your system from the [Releases page](https://github.c
   chmod +x one-pass_*.AppImage
   ./one-pass_*.AppImage
   ```
-- **macOS (.dmg)**: pick `aarch64` for Apple Silicon or `x64` for Intel, open the `.dmg` and drag one-pass to Applications. The app is not signed yet, so macOS blocks the first launch: right-click the app, choose Open, and confirm.
+- **macOS (.dmg)**: Apple Silicon only (Intel Macs are not supported). Open the `.dmg` and drag one-pass to Applications. The app is not signed yet, so macOS blocks the first launch: right-click the app, choose Open, and confirm.
 
 Each release has `SHA256SUMS-*.txt` files to check your download, e.g. `sha256sum -c SHA256SUMS-x86_64-unknown-linux-gnu.txt --ignore-missing`.
 

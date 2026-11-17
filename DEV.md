@@ -55,13 +55,13 @@ Packages are built into `target/release/bundle/` (`deb`, `rpm`, `appimage` on Li
 
 ## Releases
 
-Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`. It bundles Linux (`deb`, `rpm`, `AppImage`) and macOS (`dmg`, arm64 and x86_64) installers stamped with version `X.Y.Z`, plus `SHA256SUMS-*.txt`, and attaches them to a draft GitHub Release for that tag. Review the draft and publish it by hand.
+Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`. It bundles Linux (`deb`, `rpm`, `AppImage`) and macOS (`dmg`, Apple Silicon only) installers stamped with version `X.Y.Z`, plus `SHA256SUMS-*.txt`, and attaches them to a draft GitHub Release for that tag. Review the draft and publish it by hand.
 
 ```bash
 git tag v0.2.0 && git push origin v0.2.0
 ```
 
-The version comes from the tag only; the `0.1.0` in `tauri.conf.json`, `Cargo.toml` and `package.json` is not changed. macOS builds are not signed or notarized.
+A pre-release tag such as `v0.3.0-rc.1` creates a release marked as pre-release and skips the `.rpm`, because RPM versions can't contain `-`. The version comes from the tag only; the `0.1.0` in `tauri.conf.json`, `Cargo.toml` and `package.json` is not changed. macOS builds are not signed or notarized.
 
 ## Project layout
 
