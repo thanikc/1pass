@@ -174,4 +174,68 @@ describe("BrowserComponent", () => {
     expect(vi.getTimerCount()).toBe(0);
     expect(f.componentInstance.revealed()).toBeNull();
   });
+
+  describe("entry search", () => {
+    const m = (project: string, environment: string, name: string, notes: string): EntryMeta => ({ project, environment, name, kind: "secret", notes });
+    const DATA = [m("myapp", "dev", "DATABASE_URL", "primary db"), m("myapp", "prod", "STRIPE_KEY", ""), m("blog", "dev", "SMTP_TOKEN", "mail relay")];
+    const start = async () => {
+      const s = await setup({}, DATA);
+      await s.click("button.env", "dev"); // myapp/dev
+      return s;
+    };
+    const search = async (s: Awaited<ReturnType<typeof setup>>, q: string) => {
+      const input = s.el.querySelector<HTMLInputElement>("input[type=search]")!;
+      input.value = q;
+      input.dispatchEvent(new Event("input"));
+      await s.flush();
+    };
+    const rows = (el: HTMLElement) => [...el.querySelectorAll("button.entry")].map((b) => b.textContent!.replace(/\s+/g, " ").trim());
+
+    it("shows the selected environment only for an empty query", async () => {
+      const { el } = await start();
+      expect(el.querySelector("input[type=search]")!.getAttribute("aria-label")).toBe("Search entries");
+      expect(rows(el)).toEqual(["DATABASE_URL"]);
+    });
+
+    it.each([
+      ["stripe", "STRIPE_KEY myapp/prod"],
+      ["RELAY", "SMTP_TOKEN blog/dev"],
+      ["blog", "SMTP_TOKEN blog/dev"],
+      ["prod", "STRIPE_KEY myapp/prod"],
+    ])("matches %s across environments, ignoring case", async (q, row) => {
+      const s = await start();
+      await search(s, q);
+      expect(rows(s.el)).toEqual([row]);
+    });
+
+    it("selects the environment and entry of a chosen match", async () => {
+      const s = await start();
+      await search(s, "smtp");
+      await s.click("button.entry", "SMTP_TOKEN blog/dev");
+      expect(s.f.componentInstance.selectedEnv()).toEqual(["blog", "dev"]);
+      expect(s.el.querySelector("[aria-label=Detail] h2")!.textContent).toContain("SMTP_TOKEN");
+    });
+
+    it("says when nothing matches", async () => {
+      const s = await start();
+      await search(s, "nothing-like-this");
+      expect(rows(s.el)).toEqual([]);
+      expect(s.el.textContent).toContain("No entries match.");
+    });
+
+    it("clears the query on Escape", async () => {
+      const s = await start();
+      await search(s, "stripe");
+      s.el.querySelector("input[type=search]")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      await s.flush();
+      expect(s.el.querySelector<HTMLInputElement>("input[type=search]")!.value).toBe("");
+      expect(rows(s.el)).toEqual(["DATABASE_URL"]);
+    });
+
+    it("focuses the search field", async () => {
+      const s = await start();
+      s.f.componentInstance.focusSearch();
+      expect(document.activeElement).toBe(s.el.querySelector("input[type=search]"));
+    });
+  });
 });

@@ -30,6 +30,17 @@
   </nav>
 
   <section class="list" aria-label="Entries">
+    <input
+      #search
+      type="search"
+      name="search"
+      aria-label="Search entries"
+      placeholder="Search entries"
+      autocomplete="off"
+      [value]="query()"
+      (input)="query.set(text($event))"
+      (keydown.escape)="query.set('')"
+    />
     @if (selectedEnv(); as env) {
       @if (renaming()) {
         <form class="envbar" (submit)="renameEnv($event)">
@@ -51,10 +62,17 @@
       <button data-icon="plus" type="button" class="primary" (click)="select(null); editing.set('new')">New entry</button>
       <button data-icon="download" type="button" data-testid="import-env" (click)="importEnvFile()">Import .env</button>
     }
-    @for (e of visible(); track e.name) {
-      <button type="button" class="entry" [class.active]="e.name === selectedName()" (click)="select(e.name)">
+    @for (e of visible(); track e.project + "/" + e.environment + "/" + e.name) {
+      <button type="button" class="entry" [class.active]="e.name === selectedName()" (click)="query() ? choose(e) : select(e.name)">
         {{ e.name }}
+        @if (query()) {
+          <small class="where">{{ e.project }}/{{ e.environment }}</small>
+        }
       </button>
+    } @empty {
+      @if (query()) {
+        <p class="notice">No entries match.</p>
+      }
     }
   </section>
 

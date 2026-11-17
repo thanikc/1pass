@@ -25,6 +25,8 @@ export class BrowserComponent implements OnInit, OnDestroy {
   revealed = signal<string | null>(null);
   editing = signal<"new" | "edit" | null>(null);
   confirm = signal<"entry" | "env" | null>(null);
+  query = signal("");
+  private searchBox = viewChild<ElementRef<HTMLInputElement>>("search");
   private cancelBtn = viewChild<ElementRef<HTMLButtonElement>>("cancel");
   importing = signal<EnvCandidate[] | null>(null);
   notice = signal("");
@@ -49,6 +51,10 @@ export class BrowserComponent implements OnInit, OnDestroy {
     return [...m.entries()];
   });
   visible = computed(() => {
+    const q = this.query().trim().toLowerCase();
+    if (q) {
+      return this.entries().filter((e) => [e.name, e.notes, e.project, e.environment].some((f) => f.toLowerCase().includes(q)));
+    }
     const s = this.selectedEnv();
     return s ? this.entries().filter((e) => e.project === s[0] && e.environment === s[1]) : [];
   });
@@ -90,6 +96,17 @@ export class BrowserComponent implements OnInit, OnDestroy {
     this.selectedName.set(name);
     this.editing.set(null);
     this.notice.set("");
+  }
+
+  focusSearch(): void {
+    this.searchBox()?.nativeElement.focus();
+  }
+
+  /** Choosing a match selects its environment and entry, then clears the query so the list shows that environment. */
+  choose(e: EntryMeta): void {
+    this.query.set("");
+    this.selectEnv(e.project, e.environment);
+    this.select(e.name);
   }
 
   async reveal(): Promise<void> {

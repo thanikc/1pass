@@ -10,3 +10,5 @@ h3 { margin: 0.75rem 0 0; font-size: 0.8rem; color: var(--muted); text-transform
 .envbar strong { overflow-wrap: anywhere; }
 .value { font-family: ui-monospace, monospace; word-break: break-all; margin: 0; }
 .notice, .notes { color: var(--muted); margin: 0; }
+.list input[type=search] { box-sizing: border-box; width: 100%; min-width: 0; }
+.where { display: block; color: var(--muted); }
