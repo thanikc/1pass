@@ -2,6 +2,7 @@ import { Component, OnDestroy, computed, inject, input, output, signal } from "@
 import { errorMessage } from "../../api/errors";
 import { EntryMeta } from "../../api/types";
 import { VaultApi } from "../../api/vault-api";
+import { generateValue } from "./generate-value";
 
 const NAME_RE = /^[A-Za-z0-9._-]{1,128}$/;
 
@@ -69,5 +70,9 @@ export class EntryEditorComponent implements OnDestroy {
 
   setValue(e: Event): void {
     this.value.set(this.text(e));
+  }
+
+  generate(): void {
+    this.value.set(generateValue());
   }
 }

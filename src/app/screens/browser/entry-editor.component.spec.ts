@@ -26,7 +26,7 @@ function setup(entry: EntryMeta | null = null, saveEntry = vi.fn().mockResolvedV
     f.detectChanges();
   };
   const btn = () => el.querySelector<HTMLButtonElement>("button[type=submit]")!;
-  return { el, q, type, save, btn, saveEntry };
+  return { f, el, q, type, save, btn, saveEntry };
 }
 
 describe("EntryEditorComponent", () => {
@@ -37,6 +37,21 @@ describe("EntryEditorComponent", () => {
     expect(btn().disabled).toBe(true);
     type("value", "v");
     expect(btn().disabled).toBe(false);
+  });
+
+  it("generates a 32 character alphanumeric value, different each time", () => {
+    const { f, el, q, btn } = setup();
+    const gen = el.querySelector<HTMLButtonElement>("button[data-generate]")!;
+    expect(gen.type).toBe("button");
+    gen.click();
+    f.detectChanges();
+    const first = q("value").value;
+    expect(first).toMatch(/^[A-Za-z0-9]{32}$/);
+    expect(btn().disabled).toBe(true); // name still required
+    gen.click();
+    f.detectChanges();
+    expect(q("value").value).toMatch(/^[A-Za-z0-9]{32}$/);
+    expect(q("value").value).not.toBe(first);
   });
 
   it("rejects names outside the charset with inline help", () => {
