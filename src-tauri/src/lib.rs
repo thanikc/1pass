@@ -57,8 +57,36 @@ fn maintain(app: tauri::AppHandle) {
     });
 }
 
+/// libappindicator-sys panics (an abort in release) instead of erroring when no appindicator
+/// library is installed, so check it loads before building the tray. Same names it tries.
+#[cfg(target_os = "linux")]
+fn tray_library_available() -> bool {
+    [
+        c"libayatana-appindicator3.so.1",
+        c"libappindicator3.so.1",
+        c"libayatana-appindicator3.so",
+        c"libappindicator3.so",
+    ]
+    .iter()
+    .any(|name| {
+        // SAFETY: valid NUL-terminated name; the handle is closed right away.
+        let h = unsafe { libc::dlopen(name.as_ptr(), libc::RTLD_LAZY | libc::RTLD_LOCAL) };
+        !h.is_null() && unsafe { libc::dlclose(h) } == 0
+    })
+}
+
+#[cfg(not(target_os = "linux"))]
+fn tray_library_available() -> bool {
+    true
+}
+
 /// Tray icon with Open / Lock / Quit. Quit goes through `app.exit`, which runs the `RunEvent::Exit` cleanup.
 fn build_tray(app: &tauri::App) -> tauri::Result<TrayIcon> {
+    if !tray_library_available() {
+        return Err(tauri::Error::Io(std::io::Error::other(
+            "no appindicator library",
+        )));
+    }
     let menu = Menu::with_items(
         app,
         &[
