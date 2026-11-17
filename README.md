@@ -2,60 +2,35 @@
 
 A desktop password manager that keeps secrets out of `.env` files. The app holds the encrypted vault. Your `.env` holds references like `op://project/environment/NAME`. The `op run` command asks the app for the values, the app asks you, and only then does the command start with the secrets in its environment.
 
-Tauri 2 (Rust) backend, Angular 22 frontend. Linux and macOS are implemented. The Windows named-pipe transport is not written yet.
+## Install
 
-## Build and run
-
-```bash
-npm install
-npm run tauri dev          # desktop app with hot reload
-npm run tauri build        # release build (app only, no `op`)
-npm run bundle             # installers that include `op`
-cargo test --workspace     # Rust tests
-npm test                   # Angular tests
-```
-
-Linux needs the Tauri system libraries: `pkg-config libdbus-1-dev libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev`.
-
-## Bundle, install and run
-
-### 1. Bundle
-
-```bash
-npm run bundle
-```
-
-Packages are built into `target/release/bundle/` (`deb`, `rpm`, `appimage` on Linux; `dmg` on macOS).
-
-### 2. Install
+Download the installer for your system from the [Releases page](https://github.com/thanikc/1pass/releases). Linux and macOS are supported; Windows is not yet.
 
 - **Debian / Ubuntu (.deb)**:
   ```bash
-  sudo dpkg -i target/release/bundle/deb/one-pass_*.deb
-  # or: sudo apt install ./target/release/bundle/deb/one-pass_*.deb
+  sudo apt install ./one-pass_*_amd64.deb
   ```
 - **Fedora / RHEL (.rpm)**:
   ```bash
-  sudo rpm -i target/release/bundle/rpm/one-pass-*.rpm
+  sudo rpm -i one-pass-*.x86_64.rpm
   ```
 - **AppImage**:
   ```bash
-  chmod +x target/release/bundle/appimage/one-pass_*.AppImage
-  ./target/release/bundle/appimage/one-pass_*.AppImage
+  chmod +x one-pass_*.AppImage
+  ./one-pass_*.AppImage
   ```
+- **macOS (.dmg)**: pick `aarch64` for Apple Silicon or `x64` for Intel, open the `.dmg` and drag one-pass to Applications. The app is not signed yet, so macOS blocks the first launch: right-click the app, choose Open, and confirm.
 
-### 3. Run
+Each release has `SHA256SUMS-*.txt` files to check your download, e.g. `sha256sum -c SHA256SUMS-x86_64-unknown-linux-gnu.txt --ignore-missing`.
 
-- **App**: Run `one-pass` in a terminal (or `one-pass &` in background), or launch **one-pass** from your desktop application menu.
-- **CLI**: The `.deb` and `.rpm` packages install `/usr/bin/op`. Test with `op --help`.
+## Run
+
+- **App**: launch **one-pass** from your application menu, or run `one-pass` in a terminal.
+- **CLI**: check `op` with `op --help`.
 
 ## Install `op`
 
-The installers from `npm run bundle` include `op`. A `.deb` or `.rpm` puts it in `/usr/bin`. On macOS and AppImage, use Settings → Command-line tool to install it (`/usr/local/bin/op` on macOS, `~/.local/bin/op` for AppImage). For source builds:
-
-```bash
-cargo install --path onepass-cli
-```
+The `.deb` and `.rpm` packages install `op` to `/usr/bin`. On macOS and AppImage, use Settings → Command-line tool in the app to install it (`/usr/local/bin/op` on macOS, `~/.local/bin/op` for AppImage).
 
 `op` **has the same name as the 1Password CLI.** If both are installed, whichever comes first on `PATH` wins; rename or alias one of them. A `.deb`/`.rpm` install may also fail if a 1Password CLI package already owns `/usr/bin/op`.
 
@@ -106,10 +81,6 @@ Stock GNOME shows no tray icons without an AppIndicator extension. Without a vis
 
 A process running as the same OS user can read the child's environment while it runs, and a legitimate command can print its own environment. This design removes the "agent reads `.env`" path, not a fully hostile same-user process.
 
-## Files
+## Development
 
-- `onepass-core`: vault format (Argon2id + XChaCha20-Poly1305), data model, wire protocol.
-- `onepass-cli`: the `op` binary.
-- `src-tauri`: the app: session, approval broker, local socket, Tauri commands.
-- `src`: the Angular UI.
-- `docs/manual-test-checklist.md`: what to check by hand on each OS.
+To build from source, run the tests or cut a release, see [DEV.md](DEV.md).
