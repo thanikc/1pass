@@ -3,6 +3,7 @@ pub mod broker;
 pub mod cli_install;
 pub mod clipboard;
 mod commands;
+pub mod env_import;
 mod host;
 pub mod session;
 pub mod transport;
