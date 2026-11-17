@@ -1,3 +1,4 @@
+pub mod dotenv;
 pub mod protocol;
 #[cfg(feature = "vault")]
 pub mod vault;

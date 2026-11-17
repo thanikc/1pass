@@ -1,7 +1,5 @@
-mod dotenv;
-
 use onepass_core::{
-    Error,
+    Error, dotenv,
     protocol::{PROTOCOL_VERSION, REF_PREFIX, Reference, Request, Response, endpoint},
 };
 use std::{
