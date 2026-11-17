@@ -49,6 +49,7 @@
         </div>
       }
       <button data-icon="plus" type="button" class="primary" (click)="select(null); editing.set('new')">New entry</button>
+      <button data-icon="download" type="button" data-testid="import-env" (click)="importEnvFile()">Import .env</button>
     }
     @for (e of visible(); track e.name) {
       <button type="button" class="entry" [class.active]="e.name === selectedName()" (click)="select(e.name)">
@@ -85,6 +86,12 @@
       }
     }
   </section>
+
+  @if (importing(); as cands) {
+    @if (selectedEnv(); as env) {
+      <app-env-import [project]="env[0]" [environment]="env[1]" [candidates]="cands" (imported)="load()" (closed)="importing.set(null)" />
+    }
+  }
 
   @if (confirm(); as kind) {
     <div class="backdrop">

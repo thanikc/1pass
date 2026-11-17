@@ -1,14 +1,15 @@
 import { Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, signal, viewChild } from "@angular/core";
 import { errorMessage } from "../../api/errors";
-import { EntryMeta } from "../../api/types";
+import { EntryMeta, EnvCandidate } from "../../api/types";
 import { VaultApi } from "../../api/vault-api";
 import { EntryEditorComponent } from "./entry-editor.component";
+import { EnvImportComponent } from "./env-import.component";
 
 const REVEAL_MS = 10_000;
 
 @Component({
   selector: "app-browser",
-  imports: [EntryEditorComponent],
+  imports: [EntryEditorComponent, EnvImportComponent],
   templateUrl: "./browser.component.html",
   styleUrl: "./browser.component.css",
 })
@@ -25,6 +26,7 @@ export class BrowserComponent implements OnInit, OnDestroy {
   editing = signal<"new" | "edit" | null>(null);
   confirm = signal<"entry" | "env" | null>(null);
   private cancelBtn = viewChild<ElementRef<HTMLButtonElement>>("cancel");
+  importing = signal<EnvCandidate[] | null>(null);
   notice = signal("");
   error = signal("");
   newProject = signal("");
@@ -142,6 +144,14 @@ export class BrowserComponent implements OnInit, OnDestroy {
     this.newEnv.set("");
     await this.load();
     this.selectEnv(p, e);
+  }
+
+  async importEnvFile(): Promise<void> {
+    const s = this.selectedEnv();
+    if (!s) return;
+    await this.run(async () => {
+      this.importing.set(await this.api.pickEnvFile(s[0], s[1]));
+    });
   }
 
   startRename(): void {

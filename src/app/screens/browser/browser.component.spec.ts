@@ -18,6 +18,7 @@ async function setup(overrides: Record<string, unknown> = {}, entries = ENTRIES)
     createEnvironment: vi.fn().mockResolvedValue(undefined),
     renameEnvironment: vi.fn().mockResolvedValue(undefined),
     deleteEnvironment: vi.fn().mockResolvedValue(undefined),
+    pickEnvFile: vi.fn().mockResolvedValue(null),
     ...overrides,
   };
   TestBed.configureTestingModule({ providers: [{ provide: VaultApi, useValue: fake }] });
@@ -49,6 +50,27 @@ describe("BrowserComponent", () => {
     await click("button.env", "prod");
     expect(el.textContent).toContain("THREE");
     expect(el.textContent).not.toContain("ONE");
+  });
+
+  it("opens nothing when the file dialog is cancelled", async () => {
+    const { el, fake, click } = await setup();
+    await click("[data-testid=import-env]");
+    expect(fake.pickEnvFile).toHaveBeenCalledWith("a", "dev");
+    expect(el.querySelector("app-env-import")).toBeNull();
+  });
+
+  it("opens the import dialog with the candidates", async () => {
+    const c = [{ name: "K", status: "secret", replaces: false, preselected: true }];
+    const { el, click } = await setup({ pickEnvFile: vi.fn().mockResolvedValue(c) });
+    await click("[data-testid=import-env]");
+    expect(el.querySelector("app-env-import")).not.toBeNull();
+  });
+
+  it("shows the error when the file is refused", async () => {
+    const { el, click } = await setup({ pickEnvFile: vi.fn().mockRejectedValue({ InvalidInput: "File is too large." }) });
+    await click("[data-testid=import-env]");
+    expect(el.querySelector("[role=alert]")!.textContent).toContain("File is too large.");
+    expect(el.querySelector("app-env-import")).toBeNull();
   });
 
   it("renames the selected environment", async () => {

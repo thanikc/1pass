@@ -12,6 +12,17 @@ export interface EntryMeta {
   notes: string;
 }
 
+export type CandidateStatus = "secret" | "literal" | "reference" | "empty";
+
+/** One variable of a .env file. Never carries the value. */
+export interface EnvCandidate {
+  name: string;
+  status: CandidateStatus;
+  /** The target environment already has an entry with this name. */
+  replaces: boolean;
+  preselected: boolean;
+}
+
 export interface SaveEntryArgs {
   project: string;
   environment: string;
