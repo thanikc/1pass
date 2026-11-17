@@ -5,6 +5,7 @@ import { VaultApi } from "../../api/vault-api";
 import { generateValue } from "./generate-value";
 
 const NAME_RE = /^[A-Za-z0-9._-]{1,128}$/;
+const TRAILING_BREAKS_RE = /[\r\n]+$/;
 
 @Component({
   selector: "app-entry-editor",
@@ -30,7 +31,9 @@ export class EntryEditorComponent implements OnDestroy {
   notes = computed(() => this.noteEdit() ?? this.entry()?.notes ?? "");
   nameValid = computed(() => NAME_RE.test(this.name()));
   renaming = computed(() => !!this.entry() && this.name() !== this.entry()!.name);
-  canSave = computed(() => this.nameValid() && (!!this.entry() || this.value().length > 0));
+  /** The value to store: trailing line breaks removed, inner ones kept. */
+  private stored = computed(() => this.value().replace(TRAILING_BREAKS_RE, ""));
+  canSave = computed(() => this.nameValid() && (!!this.entry() || this.stored().length > 0));
 
   ngOnDestroy(): void {
     this.value.set("");
@@ -45,7 +48,7 @@ export class EntryEditorComponent implements OnDestroy {
         environment: this.environment(),
         name: this.name(),
         renameFrom: this.renaming() ? this.entry()!.name : null,
-        value: this.value() === "" ? null : this.value(),
+        value: this.stored() === "" ? null : this.stored(),
         notes: this.notes(),
       });
       this.saved.emit(this.name());

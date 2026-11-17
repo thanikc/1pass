@@ -8,7 +8,7 @@ h3 { margin: 0.75rem 0 0; font-size: 0.8rem; color: var(--muted); text-transform
 .newenv input, .newenv button, .envbar input { box-sizing: border-box; width: 100%; min-width: 0; }
 .envbar { display: grid; gap: 0.4rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--line); margin-bottom: 0.25rem; }
 .envbar strong { overflow-wrap: anywhere; }
-.value { font-family: ui-monospace, monospace; word-break: break-all; margin: 0; }
+.value { font-family: ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
 .notice, .notes { color: var(--muted); margin: 0; }
 .list input[type=search] { box-sizing: border-box; width: 100%; min-width: 0; }
 .where { display: block; color: var(--muted); }

@@ -84,9 +84,34 @@ describe("EntryEditorComponent", () => {
     expect(el.textContent).toContain("already exists");
   });
 
-  it("uses a non-revealing value input", () => {
+  it("uses a masked multi-line value field that skips autofill and spellcheck", () => {
     const { q } = setup();
     const i = q("value");
-    expect([i.type, i.getAttribute("autocomplete"), i.getAttribute("spellcheck")]).toEqual(["password", "off", "false"]);
+    expect(i.tagName).toBe("TEXTAREA");
+    expect(["autocomplete", "spellcheck", "autocapitalize", "autocorrect"].map((a) => i.getAttribute(a))).toEqual(["off", "false", "off", "off"]);
+    expect(i.classList).toContain("secret");
+  });
+
+  it("keeps inner line breaks", async () => {
+    const { type, save, saveEntry } = setup();
+    type("name", "K");
+    type("value", "line1\nline2");
+    await save();
+    expect(saveEntry.mock.calls[0][0].value).toBe("line1\nline2");
+  });
+
+  it("strips trailing line breaks on save", async () => {
+    const { type, save, saveEntry } = setup();
+    type("name", "K");
+    type("value", "sk-abc\r\n\n");
+    await save();
+    expect(saveEntry.mock.calls[0][0].value).toBe("sk-abc");
+  });
+
+  it("does not accept a value of only line breaks for a new entry", () => {
+    const { type, btn } = setup();
+    type("name", "K");
+    type("value", "\n\n");
+    expect(btn().disabled).toBe(true);
   });
 });

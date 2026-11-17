@@ -101,6 +101,15 @@ describe("BrowserComponent", () => {
     expect(value()).toBe("secret-of-ONE");
   });
 
+  it("shows line breaks of a revealed value", async () => {
+    const { el, click } = await setup({ revealEntry: vi.fn().mockResolvedValue("line1\nline2") });
+    await click("button.entry", "ONE");
+    await click("[data-testid=reveal]");
+    const v = el.querySelector<HTMLElement>("[data-testid=value]")!;
+    expect(v.textContent).toContain("line1\nline2");
+    expect(getComputedStyle(v).whiteSpace).toBe("pre-wrap");
+  });
+
   it("re-masks at exactly 10 s", async () => {
     const { click, value, flush } = await setup();
     await click("button.entry", "ONE");
