@@ -8,7 +8,7 @@ use onepass_core::{
     vault::{Body, Entry},
 };
 use serde::Serialize;
-use std::collections::HashMap;
+use std::{collections::HashMap, io::Read, path::Path};
 use zeroize::Zeroizing;
 
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -143,9 +143,85 @@ pub fn reference_lines(project: &str, environment: &str, names: &[String]) -> St
         .join("\n")
 }
 
+/// Largest `.env` file accepted.
+pub const MAX_FILE_BYTES: u64 = 1024 * 1024;
+
+/// Reads a picked file as UTF-8 text, refusing anything over `MAX_FILE_BYTES`. Errors never
+/// include the contents.
+pub fn read_env_file(path: &Path) -> Result<Zeroizing<String>, Error> {
+    let io = |e: std::io::Error| Error::Io(e.to_string());
+    let too_big = || Error::InvalidInput("file is larger than 1 MiB".into());
+    let file = std::fs::File::open(path).map_err(io)?;
+    if file.metadata().map_err(io)?.len() > MAX_FILE_BYTES {
+        return Err(too_big());
+    }
+    // Bounded read, so a file that grows after the check cannot get past the limit.
+    let mut bytes = Zeroizing::new(Vec::new());
+    file.take(MAX_FILE_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(io)?;
+    if bytes.len() as u64 > MAX_FILE_BYTES {
+        return Err(too_big());
+    }
+    let text = std::str::from_utf8(&bytes)
+        .map_err(|_| Error::InvalidInput("file is not valid UTF-8 text".into()))?;
+    Ok(Zeroizing::new(text.to_owned()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn temp_file(tag: &str, bytes: &[u8]) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("op-env-{tag}-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(".env");
+        std::fs::write(&path, bytes).unwrap();
+        path
+    }
+
+    fn cleanup(path: &Path) {
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn reads_a_normal_file() {
+        let p = temp_file("ok", b"A=1\n");
+        let r = read_env_file(&p);
+        cleanup(&p);
+        assert_eq!(r.unwrap().as_str(), "A=1\n");
+    }
+
+    #[test]
+    fn refuses_a_file_over_one_mebibyte() {
+        let p = temp_file("big", &vec![b'a'; MAX_FILE_BYTES as usize + 1]);
+        let r = read_env_file(&p);
+        cleanup(&p);
+        assert!(matches!(r, Err(Error::InvalidInput(_))));
+    }
+
+    #[test]
+    fn accepts_a_file_of_exactly_one_mebibyte() {
+        let p = temp_file("edge", &vec![b'a'; MAX_FILE_BYTES as usize]);
+        let r = read_env_file(&p);
+        cleanup(&p);
+        assert!(r.is_ok());
+    }
+
+    #[test]
+    fn refuses_invalid_utf8_without_echoing_contents() {
+        let p = temp_file("utf8", b"SECRET=\xff\xfe");
+        let r = read_env_file(&p);
+        cleanup(&p);
+        let msg = r.unwrap_err().to_string();
+        assert!(!msg.contains("SECRET"));
+    }
+
+    #[test]
+    fn missing_file_is_an_io_error() {
+        let p = std::env::temp_dir().join("op-env-missing-nope/.env");
+        assert!(matches!(read_env_file(&p), Err(Error::Io(_))));
+    }
 
     const FILE: &str = "STRIPE_SECRET=sk_live_abc\nLOG_LEVEL=debug\nAPI_URL=op://myapp/dev/API_URL\nEMPTY=\nDATABASE_URL=postgres://u:p@host/db\n";
 

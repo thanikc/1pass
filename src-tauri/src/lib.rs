@@ -60,6 +60,7 @@ pub fn run() {
             host::raise(app)
         }))
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             let session = Arc::new(Session::new(
@@ -84,6 +85,7 @@ pub fn run() {
                 clip: Mutex::default(),
                 ipc_error: Mutex::new(ipc_error),
                 shutdown: Mutex::new(shutdown),
+                env_file: Mutex::new(None),
             });
             maintain(app.handle().clone());
             let _ = app.emit("vault-state-changed", ());
@@ -105,6 +107,9 @@ pub fn run() {
             commands::reveal_entry,
             commands::copy_entry_value,
             commands::copy_reference,
+            commands::pick_env_file,
+            commands::import_env,
+            commands::copy_env_references,
             commands::list_pending_approvals,
             commands::respond_approval,
             commands::list_grants,
