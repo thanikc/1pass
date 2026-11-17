@@ -15,7 +15,7 @@ Password-manager desktop app. Tauri 2 (Rust, edition 2024) backend in `src-tauri
 - Frontend calls Rust via `invoke()` from `@tauri-apps/api/core`, only inside `src/app/api/vault-api.ts`.
 - Rust commands are `#[tauri::command]` fns in `src-tauri/src/commands.rs`, registered in `generate_handler![...]` in `lib.rs`.
 - `onepass-core` holds the vault format, data model and wire protocol. `onepass-cli` is the `op` binary and never links crypto.
-- `src-tauri` is Tauri-free logic tested through a fake `Host`: `session` (vault lifecycle), `broker` (request pipeline, grants, limits), `transport` (local socket), `autolock`, `clipboard`. `host` and `commands` are the thin Tauri layer.
+- `src-tauri` is Tauri-free logic tested through a fake `Host`: `session` (vault lifecycle), `broker` (request pipeline, grants, limits), `transport` (local socket), `autolock`, `clipboard`, `env_import` (.env preview and import). `host` and `commands` are the thin Tauri layer.
 - Window permissions live in `src-tauri/capabilities/default.json`; grant the minimum.
 - Angular uses standalone components and signals (see `src/app/app.component.ts`).
 

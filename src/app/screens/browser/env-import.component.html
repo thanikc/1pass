@@ -1,0 +1,45 @@
+<div class="backdrop">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="ei-title" (keydown)="keydown($event)">
+    <h2 id="ei-title">Import .env into {{ project() }} / {{ environment() }}</h2>
+    @if (!done()) {
+      <p class="notice">Choose the variables to store as entries. Values stay in the vault and are never shown here.</p>
+      <ul class="checklist">
+        @for (c of candidates(); track c.name) {
+          <li>
+            <label>
+              <input type="checkbox" [name]="c.name" [checked]="isChecked(c)" [disabled]="!importable(c)" (change)="toggle(c.name, $event)" />
+              <strong>{{ c.name }}</strong>
+              <span class="notice">{{ label(c) }}</span>
+            </label>
+            @if (!importable(c)) {
+              <span class="notice">{{ reason(c) }}</span>
+            }
+            @if (c.replaces) {
+              <span class="notice">Warning: the existing entry's value will be replaced (notes are kept).</span>
+            }
+          </li>
+        }
+      </ul>
+      @if (error()) {
+        <p role="alert" class="err">{{ error() }}</p>
+      }
+      <div class="row end">
+        <button data-icon="x" type="button" data-testid="cancel" (click)="closed.emit()">Cancel</button>
+        <button data-icon="download" type="button" class="primary" data-testid="import" [disabled]="!chosen().length" (click)="doImport()">Import</button>
+      </div>
+    } @else {
+      <p class="notice">Imported. Your .env file was not changed. Paste these lines into it to use the vault instead of the plaintext values.</p>
+      <pre><code>{{ referenceLines() }}</code></pre>
+      @if (error()) {
+        <p role="alert" class="err">{{ error() }}</p>
+      }
+      @if (notice()) {
+        <p class="notice" role="status">{{ notice() }}</p>
+      }
+      <div class="row end">
+        <button data-icon="copy" type="button" data-testid="copy-refs" (click)="copy()">Copy</button>
+        <button data-icon="check" type="button" class="primary" data-testid="done" (click)="closed.emit()">Done</button>
+      </div>
+    }
+  </div>
+</div>

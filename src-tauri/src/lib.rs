@@ -3,6 +3,7 @@ pub mod broker;
 pub mod cli_install;
 pub mod clipboard;
 mod commands;
+pub mod env_import;
 mod host;
 pub mod session;
 pub mod transport;
@@ -16,7 +17,11 @@ use std::{
     sync::{Arc, Mutex},
     time::{Duration, SystemTime},
 };
-use tauri::{Emitter, Manager, RunEvent};
+use tauri::{
+    Emitter, Manager, RunEvent, WindowEvent,
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
+};
 
 type Shutdown = Box<dyn FnOnce() + Send>;
 
@@ -52,6 +57,70 @@ fn maintain(app: tauri::AppHandle) {
     });
 }
 
+/// libappindicator-sys panics (an abort in release) instead of erroring when no appindicator
+/// library is installed, so check it loads before building the tray. Same names it tries.
+#[cfg(target_os = "linux")]
+fn tray_library_available() -> bool {
+    [
+        c"libayatana-appindicator3.so.1",
+        c"libappindicator3.so.1",
+        c"libayatana-appindicator3.so",
+        c"libappindicator3.so",
+    ]
+    .iter()
+    .any(|name| {
+        // SAFETY: valid NUL-terminated name; the handle is closed right away.
+        let h = unsafe { libc::dlopen(name.as_ptr(), libc::RTLD_LAZY | libc::RTLD_LOCAL) };
+        !h.is_null() && unsafe { libc::dlclose(h) } == 0
+    })
+}
+
+#[cfg(not(target_os = "linux"))]
+fn tray_library_available() -> bool {
+    true
+}
+
+/// Tray icon with Open / Lock / Quit. Quit goes through `app.exit`, which runs the `RunEvent::Exit` cleanup.
+fn build_tray(app: &tauri::App) -> tauri::Result<TrayIcon> {
+    if !tray_library_available() {
+        return Err(tauri::Error::Io(std::io::Error::other(
+            "no appindicator library",
+        )));
+    }
+    let menu = Menu::with_items(
+        app,
+        &[
+            &MenuItem::with_id(app, "open", "Open", true, None::<&str>)?,
+            &MenuItem::with_id(app, "lock", "Lock", true, None::<&str>)?,
+            &MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?,
+        ],
+    )?;
+    let mut tray = TrayIconBuilder::new()
+        .tooltip("one-pass")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "open" => host::raise(app),
+            "lock" => app.state::<AppState>().lock_now(),
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                host::raise(tray.app_handle());
+            }
+        });
+    if let Some(icon) = app.default_window_icon() {
+        tray = tray.icon(icon.clone());
+    }
+    tray.build(app)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -59,6 +128,7 @@ pub fn run() {
             host::raise(app)
         }))
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             let session = Arc::new(Session::new(
@@ -83,10 +153,24 @@ pub fn run() {
                 clip: Mutex::default(),
                 ipc_error: Mutex::new(ipc_error),
                 shutdown: Mutex::new(shutdown),
+                env_file: Mutex::new(None),
             });
+            // Managed so the icon lives as long as the app; its presence lets a close hide the window.
+            if let Ok(tray) = build_tray(app) {
+                app.manage(tray);
+            }
             maintain(app.handle().clone());
             let _ = app.emit("vault-state-changed", ());
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event
+                && window.label() == "main"
+                && window.try_state::<TrayIcon>().is_some()
+            {
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::vault_status,
@@ -104,6 +188,9 @@ pub fn run() {
             commands::reveal_entry,
             commands::copy_entry_value,
             commands::copy_reference,
+            commands::pick_env_file,
+            commands::import_env,
+            commands::copy_env_references,
             commands::list_pending_approvals,
             commands::respond_approval,
             commands::list_grants,
@@ -121,13 +208,19 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
-            if let RunEvent::Exit = event
-                && let Some(s) = app.try_state::<AppState>()
-            {
-                guard(&s.clip).clear_now(&AppClipboard(app));
-                if let Some(stop) = guard(&s.shutdown).take() {
-                    stop();
+            match event {
+                RunEvent::Exit => {
+                    if let Some(s) = app.try_state::<AppState>() {
+                        guard(&s.clip).clear_now(&AppClipboard(app));
+                        if let Some(stop) = guard(&s.shutdown).take() {
+                            stop();
+                        }
+                    }
                 }
+                // Dock icon clicked while the window is hidden in the tray.
+                #[cfg(target_os = "macos")]
+                RunEvent::Reopen { .. } => host::raise(app),
+                _ => {}
             }
         });
 }

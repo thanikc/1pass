@@ -86,6 +86,60 @@ describe("AppComponent", () => {
     expect(panel).toContain("op run -- npm start");
   });
 
+  it("Ctrl+F from another tab opens the Vault tab and focuses search", async () => {
+    const { el, fixture } = await setup("unlocked");
+    el.querySelector<HTMLButtonElement>("#tab-settings")!.click();
+    fixture.detectChanges();
+    const e = new KeyboardEvent("keydown", { key: "f", ctrlKey: true, cancelable: true });
+    document.dispatchEvent(e);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(e.defaultPrevented).toBe(true);
+    expect(el.querySelector("#tab-vault")!.getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(el.querySelector("input[aria-label='Search entries']"));
+  });
+
+  it("Cmd+F also focuses search", async () => {
+    const { el, fixture } = await setup("unlocked");
+    el.querySelector<HTMLButtonElement>("#tab-help")!.click();
+    fixture.detectChanges();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "F", metaKey: true, cancelable: true }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(document.activeElement).toBe(el.querySelector("input[aria-label='Search entries']"));
+  });
+
+  it("Ctrl+L and Cmd+L lock the vault", async () => {
+    const { fake } = await setup("unlocked");
+    const e = new KeyboardEvent("keydown", { key: "l", ctrlKey: true, cancelable: true });
+    document.dispatchEvent(e);
+    expect(e.defaultPrevented).toBe(true);
+    expect(fake.lock).toHaveBeenCalledTimes(1);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "l", metaKey: true, cancelable: true }));
+    expect(fake.lock).toHaveBeenCalledTimes(2);
+  });
+
+  it("shortcuts do nothing while locked", async () => {
+    const { el, fake } = await setup("locked");
+    for (const key of ["l", "f"]) {
+      const e = new KeyboardEvent("keydown", { key, ctrlKey: true, cancelable: true });
+      document.dispatchEvent(e);
+      expect(e.defaultPrevented).toBe(false);
+    }
+    expect(fake.lock).not.toHaveBeenCalled();
+    expect(el.querySelector(".shell")).toBeNull();
+  });
+
+  it("lists the shortcuts in the Help tab", async () => {
+    const { el, fixture } = await setup("unlocked");
+    el.querySelector<HTMLButtonElement>("#tab-help")!.click();
+    fixture.detectChanges();
+    const help = el.querySelector(".help")!;
+    expect(help.textContent).toContain("Shortcuts");
+    expect([...help.querySelectorAll("kbd")].map((k) => k.textContent)).toContain("F");
+    expect(help.textContent).toContain("lock the vault");
+  });
+
   it("reports activity at most once per 10 s", async () => {
     const { fake } = await setup("unlocked");
     vi.useFakeTimers();

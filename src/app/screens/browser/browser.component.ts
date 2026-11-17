@@ -1,14 +1,15 @@
 import { Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, signal, viewChild } from "@angular/core";
 import { errorMessage } from "../../api/errors";
-import { EntryMeta } from "../../api/types";
+import { EntryMeta, EnvCandidate } from "../../api/types";
 import { VaultApi } from "../../api/vault-api";
 import { EntryEditorComponent } from "./entry-editor.component";
+import { EnvImportComponent } from "./env-import.component";
 
 const REVEAL_MS = 10_000;
 
 @Component({
   selector: "app-browser",
-  imports: [EntryEditorComponent],
+  imports: [EntryEditorComponent, EnvImportComponent],
   templateUrl: "./browser.component.html",
   styleUrl: "./browser.component.css",
 })
@@ -24,7 +25,10 @@ export class BrowserComponent implements OnInit, OnDestroy {
   revealed = signal<string | null>(null);
   editing = signal<"new" | "edit" | null>(null);
   confirm = signal<"entry" | "env" | null>(null);
+  query = signal("");
+  private searchBox = viewChild<ElementRef<HTMLInputElement>>("search");
   private cancelBtn = viewChild<ElementRef<HTMLButtonElement>>("cancel");
+  importing = signal<EnvCandidate[] | null>(null);
   notice = signal("");
   error = signal("");
   newProject = signal("");
@@ -47,6 +51,10 @@ export class BrowserComponent implements OnInit, OnDestroy {
     return [...m.entries()];
   });
   visible = computed(() => {
+    const q = this.query().trim().toLowerCase();
+    if (q) {
+      return this.entries().filter((e) => [e.name, e.notes, e.project, e.environment].some((f) => f.toLowerCase().includes(q)));
+    }
     const s = this.selectedEnv();
     return s ? this.entries().filter((e) => e.project === s[0] && e.environment === s[1]) : [];
   });
@@ -88,6 +96,17 @@ export class BrowserComponent implements OnInit, OnDestroy {
     this.selectedName.set(name);
     this.editing.set(null);
     this.notice.set("");
+  }
+
+  focusSearch(): void {
+    this.searchBox()?.nativeElement.focus();
+  }
+
+  /** Choosing a match selects its environment and entry, then clears the query so the list shows that environment. */
+  choose(e: EntryMeta): void {
+    this.query.set("");
+    this.selectEnv(e.project, e.environment);
+    this.select(e.name);
   }
 
   async reveal(): Promise<void> {
@@ -142,6 +161,14 @@ export class BrowserComponent implements OnInit, OnDestroy {
     this.newEnv.set("");
     await this.load();
     this.selectEnv(p, e);
+  }
+
+  async importEnvFile(): Promise<void> {
+    const s = this.selectedEnv();
+    if (!s) return;
+    await this.run(async () => {
+      this.importing.set(await this.api.pickEnvFile(s[0], s[1]));
+    });
   }
 
   startRename(): void {

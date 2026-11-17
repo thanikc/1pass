@@ -58,6 +58,15 @@ impl Host for FakeHost {
     }
 }
 
+/// Removes a test's temp directory when the test ends, even on panic.
+struct TempDir(PathBuf);
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
 struct Env {
     dir: PathBuf,
     sock: PathBuf,
@@ -65,11 +74,13 @@ struct Env {
     host: Arc<FakeHost>,
     broker: Arc<Broker>,
     server: Option<ServerHandle>,
+    _temp: TempDir,
 }
 
 fn env(tag: &str, decision: Decision, read_timeout: Option<Duration>) -> Env {
     let dir = std::env::temp_dir().join(format!("op-ipc-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
+    let temp = TempDir(dir.clone());
     std::fs::create_dir_all(&dir).unwrap();
     let dir = dir.canonicalize().unwrap();
     let session = Arc::new(Session::new(
@@ -118,6 +129,7 @@ fn env(tag: &str, decision: Decision, read_timeout: Option<Duration>) -> Env {
         host,
         broker,
         server,
+        _temp: temp,
     }
 }
 
@@ -296,6 +308,7 @@ fn connection_cap() {
 fn stale_socket_replaced() {
     let dir = std::env::temp_dir().join(format!("op-ipc-stale-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
+    let _temp = TempDir(dir.clone());
     std::fs::create_dir_all(&dir).unwrap();
     let sock = dir.join("s.sock");
     drop(std::os::unix::net::UnixListener::bind(&sock).unwrap());

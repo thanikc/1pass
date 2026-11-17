@@ -3,6 +3,7 @@ use crate::{
     autolock::AutoLock,
     broker::{Decision, grants::GrantDuration, view::PromptView},
     clipboard::{Clipboard, ClipboardGuard},
+    env_import::{self, Candidate},
     host::TauriHost,
     session::{Session, VaultStatus},
 };
@@ -14,11 +15,13 @@ use onepass_core::{
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashSet},
+    path::PathBuf,
     sync::{Arc, Mutex, MutexGuard},
     time::{SystemTime, UNIX_EPOCH},
 };
 use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
+use tauri_plugin_dialog::DialogExt;
 use zeroize::Zeroizing;
 
 pub struct AppState {
@@ -29,6 +32,9 @@ pub struct AppState {
     pub clip: Mutex<ClipboardGuard>,
     pub ipc_error: Mutex<Option<String>>,
     pub shutdown: Mutex<Option<Box<dyn FnOnce() + Send>>>,
+    /// The `.env` file picked in the native dialog with the project and environment it was
+    /// picked for, remembered until its import succeeds or the vault locks.
+    pub env_file: Mutex<Option<(PathBuf, String, String)>>,
 }
 
 fn guard<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -66,6 +72,7 @@ impl AppState {
     /// Lock and drop our clipboard value. Used by the Lock button and the idle timer.
     pub fn lock_now(&self) {
         self.session.lock();
+        *guard(&self.env_file) = None;
         guard(&self.clip).clear_now(&AppClipboard(&self.app));
         self.changed();
     }
@@ -228,6 +235,86 @@ pub fn copy_reference(
     let reference = format!("op://{project}/{environment}/{name}");
     Reference::parse(&reference)?;
     AppClipboard(&s.app).write_plain(&reference)
+}
+
+/// Async so the blocking dialog never runs on the main thread. Cancelling returns `None` and
+/// leaves any earlier pick alone. The file's values never reach the UI.
+#[tauri::command]
+pub async fn pick_env_file(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    s: State<'_, AppState>,
+    project: String,
+    environment: String,
+) -> R<Option<Vec<Candidate>>> {
+    s.touch();
+    if !s.session.is_unlocked() {
+        return Err(Error::VaultLocked);
+    }
+    let Some(picked) = app
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .add_filter("Environment files", &["env"])
+        .add_filter("All files", &["*"])
+        .blocking_pick_file()
+    else {
+        return Ok(None);
+    };
+    let path = picked
+        .into_path()
+        .map_err(|_| Error::InvalidInput("that file cannot be opened".into()))?;
+    let text = env_import::read_env_file(&path)?;
+    let found = s
+        .session
+        .read(|v| env_import::candidates(&text, &v.body, &project, &environment))??;
+    *guard(&s.env_file) = Some((path, project, environment));
+    Ok(Some(found))
+}
+
+fn picked_env_text(s: &AppState, project: &str, environment: &str) -> R<Zeroizing<String>> {
+    let (path, p, e) = guard(&s.env_file)
+        .clone()
+        .ok_or_else(|| Error::InvalidInput("no .env file chosen".into()))?;
+    if p != project || e != environment {
+        return Err(Error::InvalidInput(
+            "the file was chosen for another environment".into(),
+        ));
+    }
+    env_import::read_env_file(&path)
+}
+
+/// Re-reads the remembered file. A failed import keeps the pick so the user can retry; a
+/// successful one forgets it.
+#[tauri::command(async)]
+pub fn import_env(
+    s: State<'_, AppState>,
+    project: String,
+    environment: String,
+    names: Vec<String>,
+) -> R<()> {
+    s.touch();
+    let text = picked_env_text(&s, &project, &environment)?;
+    s.session
+        .mutate(|b| env_import::import(b, &project, &environment, &text, &names))?;
+    *guard(&s.env_file) = None;
+    Ok(())
+}
+
+/// Reference lines hold no secrets, so this is a plain clipboard write.
+#[tauri::command(async)]
+pub fn copy_env_references(
+    s: State<'_, AppState>,
+    project: String,
+    environment: String,
+    names: Vec<String>,
+) -> R<()> {
+    s.touch();
+    AppClipboard(&s.app).write_plain(&env_import::reference_lines(
+        &project,
+        &environment,
+        &names,
+    )?)
 }
 
 #[tauri::command(async)]

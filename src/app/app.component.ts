@@ -1,4 +1,4 @@
-import { Component, OnDestroy, inject, signal } from "@angular/core";
+import { Component, Injector, OnDestroy, afterNextRender, inject, signal, viewChild } from "@angular/core";
 import { VaultApi } from "./api/vault-api";
 import { VaultStatus } from "./api/types";
 import { BrowserComponent } from "./screens/browser/browser.component";
@@ -23,13 +23,15 @@ function initialTheme(): "light" | "dark" {
   imports: [UnlockComponent, BrowserComponent, GrantsComponent, ApprovalDialogComponent, AuditComponent, SettingsComponent],
   host: {
     "(document:mousedown)": "activity()",
-    "(document:keydown)": "activity()",
+    "(document:keydown)": "activity(); shortcut($event)",
   },
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
 })
 export class AppComponent implements OnDestroy {
   private api = inject(VaultApi);
+  private injector = inject(Injector);
+  private browser = viewChild(BrowserComponent);
   private unlisten = this.api.onVaultStateChanged(() => void this.refresh());
 
   status = signal<VaultStatus | null>(null);
@@ -62,6 +64,20 @@ export class AppComponent implements OnDestroy {
     if (now - this.lastActivity < ACTIVITY_THROTTLE_MS) return;
     this.lastActivity = now;
     void this.api.noteActivity();
+  }
+
+  /** Ctrl/Cmd+F opens the Vault tab and focuses search; Ctrl/Cmd+L locks. Only while unlocked. */
+  shortcut(e: KeyboardEvent): void {
+    if (this.status() !== "unlocked" || !(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const key = e.key.toLowerCase();
+    if (key === "f") {
+      e.preventDefault();
+      this.tab.set("vault");
+      afterNextRender(() => this.browser()?.focusSearch(), { injector: this.injector });
+    } else if (key === "l") {
+      e.preventDefault();
+      void this.lock();
+    }
   }
 
   /** Arrow/Home/End move between tabs (ARIA tabs pattern). */

@@ -18,6 +18,7 @@ async function setup(overrides: Record<string, unknown> = {}, entries = ENTRIES)
     createEnvironment: vi.fn().mockResolvedValue(undefined),
     renameEnvironment: vi.fn().mockResolvedValue(undefined),
     deleteEnvironment: vi.fn().mockResolvedValue(undefined),
+    pickEnvFile: vi.fn().mockResolvedValue(null),
     ...overrides,
   };
   TestBed.configureTestingModule({ providers: [{ provide: VaultApi, useValue: fake }] });
@@ -51,6 +52,27 @@ describe("BrowserComponent", () => {
     expect(el.textContent).not.toContain("ONE");
   });
 
+  it("opens nothing when the file dialog is cancelled", async () => {
+    const { el, fake, click } = await setup();
+    await click("[data-testid=import-env]");
+    expect(fake.pickEnvFile).toHaveBeenCalledWith("a", "dev");
+    expect(el.querySelector("app-env-import")).toBeNull();
+  });
+
+  it("opens the import dialog with the candidates", async () => {
+    const c = [{ name: "K", status: "secret", replaces: false, preselected: true }];
+    const { el, click } = await setup({ pickEnvFile: vi.fn().mockResolvedValue(c) });
+    await click("[data-testid=import-env]");
+    expect(el.querySelector("app-env-import")).not.toBeNull();
+  });
+
+  it("shows the error when the file is refused", async () => {
+    const { el, click } = await setup({ pickEnvFile: vi.fn().mockRejectedValue({ InvalidInput: "File is too large." }) });
+    await click("[data-testid=import-env]");
+    expect(el.querySelector("[role=alert]")!.textContent).toContain("File is too large.");
+    expect(el.querySelector("app-env-import")).toBeNull();
+  });
+
   it("renames the selected environment", async () => {
     const { el, fake, click, flush } = await setup();
     await click("[data-testid=rename-env]");
@@ -77,6 +99,15 @@ describe("BrowserComponent", () => {
     expect(fake.revealEntry).not.toHaveBeenCalled();
     await click("[data-testid=reveal]");
     expect(value()).toBe("secret-of-ONE");
+  });
+
+  it("shows line breaks of a revealed value", async () => {
+    const { el, click } = await setup({ revealEntry: vi.fn().mockResolvedValue("line1\nline2") });
+    await click("button.entry", "ONE");
+    await click("[data-testid=reveal]");
+    const v = el.querySelector<HTMLElement>("[data-testid=value]")!;
+    expect(v.textContent).toContain("line1\nline2");
+    expect(getComputedStyle(v).whiteSpace).toBe("pre-wrap");
   });
 
   it("re-masks at exactly 10 s", async () => {
@@ -151,5 +182,69 @@ describe("BrowserComponent", () => {
     f.destroy();
     expect(vi.getTimerCount()).toBe(0);
     expect(f.componentInstance.revealed()).toBeNull();
+  });
+
+  describe("entry search", () => {
+    const m = (project: string, environment: string, name: string, notes: string): EntryMeta => ({ project, environment, name, kind: "secret", notes });
+    const DATA = [m("myapp", "dev", "DATABASE_URL", "primary db"), m("myapp", "prod", "STRIPE_KEY", ""), m("blog", "dev", "SMTP_TOKEN", "mail relay")];
+    const start = async () => {
+      const s = await setup({}, DATA);
+      await s.click("button.env", "dev"); // myapp/dev
+      return s;
+    };
+    const search = async (s: Awaited<ReturnType<typeof setup>>, q: string) => {
+      const input = s.el.querySelector<HTMLInputElement>("input[type=search]")!;
+      input.value = q;
+      input.dispatchEvent(new Event("input"));
+      await s.flush();
+    };
+    const rows = (el: HTMLElement) => [...el.querySelectorAll("button.entry")].map((b) => b.textContent!.replace(/\s+/g, " ").trim());
+
+    it("shows the selected environment only for an empty query", async () => {
+      const { el } = await start();
+      expect(el.querySelector("input[type=search]")!.getAttribute("aria-label")).toBe("Search entries");
+      expect(rows(el)).toEqual(["DATABASE_URL"]);
+    });
+
+    it.each([
+      ["stripe", "STRIPE_KEY myapp/prod"],
+      ["RELAY", "SMTP_TOKEN blog/dev"],
+      ["blog", "SMTP_TOKEN blog/dev"],
+      ["prod", "STRIPE_KEY myapp/prod"],
+    ])("matches %s across environments, ignoring case", async (q, row) => {
+      const s = await start();
+      await search(s, q);
+      expect(rows(s.el)).toEqual([row]);
+    });
+
+    it("selects the environment and entry of a chosen match", async () => {
+      const s = await start();
+      await search(s, "smtp");
+      await s.click("button.entry", "SMTP_TOKEN blog/dev");
+      expect(s.f.componentInstance.selectedEnv()).toEqual(["blog", "dev"]);
+      expect(s.el.querySelector("[aria-label=Detail] h2")!.textContent).toContain("SMTP_TOKEN");
+    });
+
+    it("says when nothing matches", async () => {
+      const s = await start();
+      await search(s, "nothing-like-this");
+      expect(rows(s.el)).toEqual([]);
+      expect(s.el.textContent).toContain("No entries match.");
+    });
+
+    it("clears the query on Escape", async () => {
+      const s = await start();
+      await search(s, "stripe");
+      s.el.querySelector("input[type=search]")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      await s.flush();
+      expect(s.el.querySelector<HTMLInputElement>("input[type=search]")!.value).toBe("");
+      expect(rows(s.el)).toEqual(["DATABASE_URL"]);
+    });
+
+    it("focuses the search field", async () => {
+      const s = await start();
+      s.f.componentInstance.focusSearch();
+      expect(document.activeElement).toBe(s.el.querySelector("input[type=search]"));
+    });
   });
 });

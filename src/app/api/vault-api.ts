@@ -5,6 +5,7 @@ import {
   ApprovalMode,
   AuditRecord,
   DecisionInput,
+  EnvCandidate,
   EntryMeta,
   GrantView,
   PromptView,
@@ -40,6 +41,14 @@ export class VaultApi {
     invoke<void>("copy_entry_value", { project, environment, name });
   copyReference = (project: string, environment: string, name: string) =>
     invoke<void>("copy_reference", { project, environment, name });
+
+  /** null when the file dialog was cancelled. */
+  pickEnvFile = (project: string, environment: string) =>
+    invoke<EnvCandidate[] | null>("pick_env_file", { project, environment });
+  importEnv = (project: string, environment: string, names: string[]) =>
+    invoke<void>("import_env", { project, environment, names });
+  copyEnvReferences = (project: string, environment: string, names: string[]) =>
+    invoke<void>("copy_env_references", { project, environment, names });
 
   listPendingApprovals = () => invoke<PromptView[]>("list_pending_approvals");
   respondApproval = (id: number, decision: DecisionInput) =>

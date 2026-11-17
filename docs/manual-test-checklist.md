@@ -14,6 +14,27 @@ Run each section on its OS before a release. Automated tests cover logic; these 
 - [ ] Exit code and signal of the child are passed through.
 - [ ] Starting a second instance raises the first.
 
+## Background tray (every platform with a tray icon)
+
+- [ ] Close the window: it hides, the app keeps running and `op run -- true` still reaches it.
+- [ ] Tray Open (or left click on macOS) shows and focuses the hidden window. On Linux left click does nothing; use the menu.
+- [ ] Tray Lock locks the vault, and time-boxed approvals are gone.
+- [ ] Tray Quit exits the app, removes the socket and clears a copied value from the clipboard.
+- [ ] Hide the window, then `op run -- true`: the window is shown and focused (unlock or approval dialog).
+- [ ] Hide the window, then start one-pass again: the first instance's window is shown and focused.
+- [ ] Auto-lock 1 minute, window hidden: the vault is locked after 1 minute.
+- [ ] If the tray icon can't be created (no tray library installed), closing the window quits.
+- [ ] Stock GNOME without an AppIndicator extension: closing hides the window; starting one-pass again shows it.
+
+## Env file import
+
+- [ ] Import .env, cancel the file dialog: nothing changes.
+- [ ] A file with a syntax error, a file over 1 MiB and a non-UTF-8 file are each refused with an error, and nothing is stored.
+- [ ] Checklist shows names and status only, never values. Secret-looking literals are preselected; references and empty values can't be ticked.
+- [ ] An existing entry is replaced only when ticked, and its notes are kept.
+- [ ] After importing, the `NAME=op://project/environment/NAME` lines are shown. Copy puts them on the clipboard, and `op run` with them resolves.
+- [ ] The `.env` file is byte-for-byte unchanged.
+
 ## Linux
 
 - [ ] `ls -l $XDG_RUNTIME_DIR/onepass.sock` shows `srw-------` and your user.

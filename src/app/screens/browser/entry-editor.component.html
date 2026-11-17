@@ -11,16 +11,22 @@
   }
   <label>
     Value
-    <input
-      type="password"
+    <textarea
+      class="secret"
       name="value"
+      rows="3"
       autocomplete="off"
       spellcheck="false"
+      autocapitalize="off"
+      autocorrect="off"
       [placeholder]="entry() ? 'Leave empty to keep the current value' : ''"
       [value]="value()"
       (input)="setValue($event)"
-    />
+      (copy)="$event.preventDefault()"
+      (cut)="$event.preventDefault()"
+    ></textarea>
   </label>
+  <button data-icon="plus" data-generate type="button" (click)="generate()">Generate</button>
   <label>
     Notes
     <textarea name="notes" rows="3" [value]="notes()" (input)="setNotes($event)"></textarea>
