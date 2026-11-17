@@ -9,7 +9,7 @@ use std::{
     os::{
         fd::AsRawFd,
         unix::{
-            fs::{FileTypeExt, PermissionsExt},
+            fs::{DirBuilderExt, FileTypeExt, PermissionsExt},
             net::{UnixListener, UnixStream},
         },
     },
@@ -63,6 +63,62 @@ mod tests {
         assert!(r.is_err());
         assert_eq!(n.load(SeqCst), 0);
     }
+
+    fn scratch(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("onepass-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn bind_does_not_change_umask_for_other_threads() {
+        let dir = scratch("umask");
+        let (stop, made) = (Arc::new(AtomicBool::new(false)), dir.join("made"));
+        std::fs::create_dir(&made).unwrap();
+        let (stop2, made2) = (stop.clone(), made.clone());
+        let t = std::thread::spawn(move || {
+            let mut n = 0;
+            while !stop2.load(SeqCst) {
+                std::fs::create_dir(made2.join(n.to_string())).unwrap();
+                n += 1;
+            }
+        });
+        let ep = dir.join("ep.sock");
+        for _ in 0..2000 {
+            drop(bind(&ep).unwrap());
+        }
+        stop.store(true, SeqCst);
+        t.join().unwrap();
+        for e in std::fs::read_dir(&made).unwrap() {
+            let d = e.unwrap().path();
+            std::fs::write(d.join("f"), b"x").unwrap_or_else(|e| panic!("{d:?} unusable: {e}"));
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn nothing_is_left_beside_the_endpoint() {
+        let dir = scratch("clean");
+        let ep = dir.join("ep.sock");
+        let _l = bind(&ep).unwrap();
+        let names: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(names, ["ep.sock"]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn leftover_temp_dir_makes_bind_fail() {
+        let dir = scratch("leftover");
+        let ep = dir.join("ep.sock");
+        std::fs::create_dir(temp_dir_for(&ep)).unwrap();
+        assert!(bind(&ep).is_err());
+        assert!(!ep.exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }
 
 pub fn serve(broker: Arc<Broker>, endpoint: PathBuf) -> Result<ServerHandle, Error> {
@@ -111,12 +167,38 @@ pub fn serve_with(
     })
 }
 
+/// Private staging directory next to the endpoint (same filesystem, so the rename is atomic).
+fn temp_dir_for(path: &std::path::Path) -> PathBuf {
+    let name = path.file_name().unwrap_or_default().to_string_lossy();
+    path.with_file_name(format!(".{name}.tmp"))
+}
+
+/// Removes the staging directory (and anything in it) on every exit path.
+struct TempDir(PathBuf);
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
 fn bind(path: &std::path::Path) -> Result<UnixListener, Error> {
+    // Bind inside a 0700 directory so the socket is never reachable with a wider mode,
+    // without touching the process-wide umask. create fails if the name already exists:
+    // a leftover or planted directory is not trusted.
+    let dir = temp_dir_for(path);
+    std::fs::DirBuilder::new().mode(0o700).create(&dir)?;
+    let _guard = TempDir(dir.clone());
+    let staged = dir.join("s");
+    let listener = UnixListener::bind(&staged)?;
+    std::fs::set_permissions(&staged, std::fs::Permissions::from_mode(0o600))?;
+
+    // Checked as late as possible: rename would silently replace a regular file.
     if UnixStream::connect(path).is_ok() {
         return Err(Error::Io("another instance is running".into()));
     }
     match std::fs::symlink_metadata(path) {
-        Ok(m) if m.file_type().is_socket() => std::fs::remove_file(path)?,
+        Ok(m) if m.file_type().is_socket() => {} // stale: rename replaces it atomically
         Ok(_) => {
             return Err(Error::Io(format!(
                 "{} exists and is not a socket",
@@ -126,13 +208,7 @@ fn bind(path: &std::path::Path) -> Result<UnixListener, Error> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
         Err(e) => return Err(e.into()),
     }
-    // Create it private from the start; umask only ever narrows, so concurrent file creation is safe.
-    // SAFETY: umask has no preconditions.
-    let old = unsafe { libc::umask(0o177) };
-    let bound = UnixListener::bind(path);
-    unsafe { libc::umask(old) };
-    let listener = bound?;
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+    std::fs::rename(&staged, path)?;
     Ok(listener)
 }
 
