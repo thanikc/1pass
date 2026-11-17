@@ -17,7 +17,11 @@ use std::{
     sync::{Arc, Mutex},
     time::{Duration, SystemTime},
 };
-use tauri::{Emitter, Manager, RunEvent};
+use tauri::{
+    Emitter, Manager, RunEvent, WindowEvent,
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
+};
 
 type Shutdown = Box<dyn FnOnce() + Send>;
 
@@ -51,6 +55,42 @@ fn maintain(app: tauri::AppHandle) {
             guard(&s.clip).tick(&AppClipboard(&app), now);
         }
     });
+}
+
+/// Tray icon with Open / Lock / Quit. Quit goes through `app.exit`, which runs the `RunEvent::Exit` cleanup.
+fn build_tray(app: &tauri::App) -> tauri::Result<TrayIcon> {
+    let menu = Menu::with_items(
+        app,
+        &[
+            &MenuItem::with_id(app, "open", "Open", true, None::<&str>)?,
+            &MenuItem::with_id(app, "lock", "Lock", true, None::<&str>)?,
+            &MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?,
+        ],
+    )?;
+    let mut tray = TrayIconBuilder::new()
+        .tooltip("one-pass")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "open" => host::raise(app),
+            "lock" => app.state::<AppState>().lock_now(),
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                host::raise(tray.app_handle());
+            }
+        });
+    if let Some(icon) = app.default_window_icon() {
+        tray = tray.icon(icon.clone());
+    }
+    tray.build(app)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -87,9 +127,22 @@ pub fn run() {
                 shutdown: Mutex::new(shutdown),
                 env_file: Mutex::new(None),
             });
+            // Managed so the icon lives as long as the app; its presence lets a close hide the window.
+            if let Ok(tray) = build_tray(app) {
+                app.manage(tray);
+            }
             maintain(app.handle().clone());
             let _ = app.emit("vault-state-changed", ());
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event
+                && window.label() == "main"
+                && window.try_state::<TrayIcon>().is_some()
+            {
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::vault_status,
